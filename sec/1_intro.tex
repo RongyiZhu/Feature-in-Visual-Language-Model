@@ -1,78 +1,94 @@
 \section{Introduction}
 \label{sec:intro}
 
-Understanding the internal representations learned by neural networks has
-long been a central goal of interpretability research. Early work visualized
-or attributed units in image
-classifiers~\cite{ZeilerFergus2014,SimonyanEtAl2014,BauEtAl2017,KimEtAl2018}.
-More recent work on large language models has used probing
-classifiers~\cite{AlainBengio2017,HewittLiang2019,Belinkov2022}, concept
-directions~\cite{ZouEtAl2023}, and sparse
-decompositions~\cite{CunninghamEtAl2023} to recover human-interpretable
-features as linear structure in hidden states. This goal is both scientific
-and practical: once a feature can be localized, researchers can audit,
-monitor, and intervene on it. Interpretability can therefore help predict and
-steer model behaviour in ways that black-box evaluation alone cannot.
+Identifying a visual concept inside a vision--language model (VLM) requires
+connecting an observable property of an image to the hidden states that
+represent it. This connection is difficult because visual tokens have no
+discrete identities drawn from a fixed vocabulary. A token can encode
+object category, appearance, position, and scene context, and its
+representation changes as it is processed by the language
+decoder~\cite{NeoEtAl2025}. Even when an object's location in the image is
+known, that location need not identify all the tokens that carry its
+category information. An interpretability method must therefore address
+both how a concept is defined and how its support in the representation is
+determined.
 
-Extending this program to vision--language models (VLMs) presents a distinct
-challenge. A VLM maps an image to visual tokens that are processed by a
-language decoder~\cite{LiuEtAl2023LLaVA,WangEtAl2024Qwen2VL,
-BaiEtAl2025Qwen25VL}. These tokens encode the visual content on which the
-model reasons. Unlike text tokens, however, they have no discrete identities
-drawn from a fixed vocabulary. A visual token can entangle object category,
-appearance, scale, position, and scene context, leaving no simple ground truth
-for what it should represent. Existing studies have therefore interpreted VLM
-internals largely through language: they explain neurons, embedding
-components, and sparse features by projecting them onto words or
-captions~\cite{OikarinenWeng2023,GandelsmanEtAl2024,BhallaEtAl2024,
-NeoEtAl2025,ZaigrajewEtAl2025,PapadimitriouEtAl2025,PachEtAl2025}. Such
-vocabulary-level descriptions depend on a potentially noisy naming step and
-do not directly characterize visual properties that are difficult to express
-as object nouns, such as attributes or the binding of properties to objects.
-A systematic account of VLM representations therefore requires evaluation
-grounded directly in visual concepts.
+Existing approaches provide several ways to connect representations to
+human concepts. Concept activation vectors and representation reading
+estimate directions from examples or contrasting
+inputs~\cite{KimEtAl2018,ZouEtAl2023}. Other methods describe visual
+neurons, embedding components, or token representations through text
+embeddings and vocabulary projections~\cite{OikarinenWeng2023,
+GandelsmanEtAl2024,NeoEtAl2025}, while vision sparse autoencoders can be
+evaluated through the similarity of their activating
+images~\cite{PachEtAl2025}. These approaches motivate a complementary
+question: can we define a category through a controlled change to visual
+content and recover a transferable direction without specifying in advance
+which tokens should represent that change?
 
-We introduce a framework for systematically evaluating VLM representations
-across multiple levels of visual abstraction: object category at the token and
-image levels, object attributes, and the binding of properties to objects. We
-estimate category directions from controlled image contrasts and, at each
-label-free level, use a common read-out: a margin pooled over visual tokens
-and calibrated against a random-direction floor. This design helps separate
-representational signal from artifacts of the read-out and enables consistent
-comparisons across models within each concept level.
+We introduce a framework built around matched visual interventions.
+For a target category and a sampled competitor, we paste their object
+cutouts separately into the same base image, at the same center and target
+area. Holding the scene and compositing procedure fixed reduces variation
+unrelated to the category comparison. The intervention establishes what
+changed in the input, while the model's response determines how to
+aggregate hidden states. Our central design principle is that knowledge of
+the intervention's pixel support does not imply knowledge of its latent
+support.
 
-\begin{figure}
+\begin{figure}[t]
     \centering
     \includegraphics[width=\linewidth]{figs/step1_extraction.pdf}
-    \caption{Step 1: contrast representation extraction. We paste two target figure on the same base image. }
-    \label{fig:placeholder}
+    \caption{\textbf{Matched visual interventions.}
+        Objects from a target category and a competitor are inserted
+        separately into the same base image at a matched center and area.
+        The base and both composites form a discovery triple. The paste
+        masks guide image construction; token weights are computed from
+        hidden-state responses to the interventions.}
+    \label{fig:matched_interventions}
 \end{figure}
 
-First, we use controlled visual interventions
-to identify what carries a feature. A supervised probe can establish that a
-property is decodable, but not that it is encoded by the intended object: in
-natural images, a category covaries with scene context, framing, and object
-scale, and a probe may exploit any of these
-signals~\cite{AlainBengio2017,HewittLiang2019}. We instead construct matched
-image pairs that differ only in which object occupies the same location.
-Subtracting their representations cancels the shared scene, edit, and
-category-independent object effects, isolating a category-relative direction
-without a fitted probe. Second, we evaluate representations across levels of
-granularity. Strong category encoding does not imply equally strong encoding
-of attributes or relations. Moving from token-level category to image-level
-presence, attributes, and binding reveals where linear feature structure
-remains accessible and where it breaks down.
+The framework separates support estimation from direction estimation.
+First, we measure each visual token's change from the base under both
+insertions and normalize these response magnitudes into continuous weights.
+The same weights are then applied to the direct difference between the two
+composites. Every visual token is eligible, allowing information outside
+the pasted region to contribute. Averaging these contrasts over uniformly
+sampled competitors produces one direction per category and layer.
+Under a shared-nuisance model with competitor-independent expected gain
+and zero-mean weighted residuals, the expected average aligns with the
+category's deviation from the menu mean. These assumptions explain the
+estimator's category-relative interpretation; the estimator itself is
+defined directly by the intervention responses.
 
-In summary, our contributions are threefold:
+We assess the resulting directions on disjoint natural images. Each token
+is scored by its cosine alignment with a category direction, and the
+highest-scoring fraction of tokens is averaged into an image-level presence
+score. This readout requires neither object locations nor spatial
+annotations. Category annotations and masks are used to construct the
+interventions, while image-level labels are used to evaluate the frozen
+natural-image scores with ROC-AUC. Random directions passed through the
+same readout provide a reference for interpreting the measured association.
+Separating discovery from evaluation tests whether information extracted
+from controlled composites transfers to unedited images.
+
+The framework measures category information accessible through
+intervention-derived directions. Its token weights describe responses to
+an input change, and its presence scores assess transfer; neither alone
+establishes that the direction causally controls model outputs. This scope
+makes the method a concrete tool for studying visual representations across
+layers and models without fitting a classifier on natural-image labels or
+naming the extracted directions through text.
+
+Our contributions are:
 \begin{mitemize}
-\item We develop a pipeline for identifying VLM feature directions through
-    controlled image interventions. Matched image pairs that differ in one
-    object category isolate category-relative directions by cancellation,
-    without requiring manual or LLM-generated descriptions of those
-    directions.
-\item We introduce an evaluation metric for VLM interpretability: the gap
-    between a label-free pooled-margin read-out and a calibrated
-    random-direction floor. The metric applies to datasets spanning multiple
-    levels of visual concepts.
-\item We evaluate open-weight VLMs cross different model families and sizes and our methods outperform most of the other interpretablility methods. 
+\item A visual intervention framework that estimates token support from
+    representation changes, without using the paste mask to select hidden
+    states.
+\item A category-direction estimator based on symmetric response weighting
+    and balanced contrast averaging, with an explicit account of its
+    category-relative interpretation.
+\item A natural-image transfer protocol using token-wise cosine alignment,
+    top-fraction pooling, and presence ROC-AUC, with random-direction
+    controls and separate discovery and evaluation data.
 \end{mitemize}

@@ -1,12 +1,14 @@
 \section{Method}
 \label{sec:method}
-We firstly introduce the proposed method as follows:
 
 \subsection{Overview and Representation}
 \label{sec:method_overview}
 
-Let a frozen VLM map an image \(I\) to the layer-\(\ell\) hidden states at
-its post-merger visual-token positions,
+Our pipeline consists of four steps: construct matched interventions,
+weight tokens by their intervention responses, average category contrasts,
+and evaluate the resulting directions on natural images.
+Let a frozen VLM produce the layer-\(\ell\) hidden states at its
+visual-token positions,
 \begin{equation}
     H^{(\ell)}(I)
     =
@@ -15,186 +17,226 @@ its post-merger visual-token positions,
     \label{eq:visual_representation}
 \end{equation}
 where \(T(I)\) is the number of visual tokens and \(D\) is the decoder
-width.  We estimate, independently at each analyzed layer, one direction
-\(g_c^{(\ell)}\in\mathbb{R}^D\) for each category \(c\) in a fixed menu
-\(\mathcal{C}\).  We suppress the layer superscript below.
+width. These are the positions occupied by the image representation after
+the model's visual-to-language interface, tracked through the decoder;
+text and special-token positions are excluded. We estimate one unit
+direction \(g_c^{(\ell)}\) per category in a fixed menu
+\(\mathcal C\), independently at each analyzed layer. We write
+\(C=|\mathcal C|\geq2\) and omit the layer superscript below.
 
-Our pipeline has two stages.  First, we construct matched image triples and
-use their hidden-state contrasts to estimate category-relative directions
-\(\widehat G=[\widehat g_1,\ldots,\widehat g_C]^\top\).  Second, we apply
-\(\widehat G\) to disjoint natural images using a gauge-invariant,
-mask-free read-out.  Category annotations and instance masks are used to
-construct and quality-control the interventions, and later to define
-evaluation labels, but they are never used to select tokens or construct
-the primary score on an evaluation image.  We use \emph{label-free} below
-only in this score-time sense.
+Discovery uses controlled composites; evaluation uses disjoint natural
+images. Category annotations and instance masks support intervention
+construction and quality control. Spatial annotations do not select the
+tokens used for direction estimation or natural-image scoring.
+Image-level category labels are accessed to evaluate the frozen scores.
+Direction estimation uses visual hidden-state differences and does not
+require text embeddings or textual descriptions of the extracted features.
 
-\todo
-
-\subsection{Matched Pairwise Interventions}
+\subsection{Matched Visual Interventions}
 \label{sec:matched_interventions}
 
-Let \(\mathcal{C}\) be a fixed menu of \(C\) categories.  For every
-unordered pair \(\{c,c'\}\subset\mathcal{C}\), we construct records
-\[
-    \mathcal{T}_i=(I_i^0,I_i^c,I_i^{c'}),
-\]
-where \(I_i^0\) is a natural base image containing neither category,
-\(I_i^c\) contains a real cutout of category \(c\), and \(I_i^{c'}\)
-contains a real cutout of category \(c'\).  The cutouts are extracted from
-ground-truth instance polygons in the training split; no generated pixels
-are used.  The base and donor images are disjoint from the natural images
-used for evaluation.
+For each target category \(c\), we sample competitors
+\begin{equation}
+    q_i\sim\operatorname{Uniform}(\mathcal C\setminus\{c\})
+    \label{eq:competitor_sampling}
+\end{equation}
+and construct triples
+\(\mathcal T_i=(I_i^0,I_i^c,I_i^{q_i})\).
+The base \(I_i^0\) contains neither category; the other two images contain
+an inserted cutout of \(c\) or \(q_i\), respectively. Cutouts are extracted
+from annotated instances in the discovery split. Both donor and base
+images are disjoint from the natural-image evaluation set.
 
-The two cutouts are inserted into the same base image at the same site
-center and target pixel area.  Their aspect ratios are preserved, while
-the target normalized area \(a_i\) is drawn from a shared,
-category-independent distribution \(p_A\).  This prevents object scale
-from becoming a class cue.  We sample sites that do not overlap annotated
-objects and composite each cutout using the same alpha blending and local
-color-harmonization procedure.  Each composite is byte-identical to the
-base outside its paste footprint.
+The two cutouts share a paste center and target foreground area, with
+aspect ratios preserved. The normalized target area is drawn from a
+category-independent distribution \(p_A\). We sample sites outside
+annotated objects and apply the same alpha blending and local color
+harmonization procedure to both insertions. Pixels outside each paste
+footprint are unchanged. These controls match the surrounding scene and
+insertion procedure, while object shape, appearance, and category-specific
+interactions can still differ.
 
-An open-vocabulary detector rejects a base when either target category has
-confidence above an absence threshold \(\tau_{\mathrm{abs}}\).  A triple is
-retained only when the intended category is detected in both composites
-with confidence at least \(\tau_{\mathrm{det}}\) and
-intersection-over-union at least \(\tau_{\mathrm{IoU}}\) with the paste
-footprint.  We additionally require each paste to have nonempty visual-token
-support; this mask-based check is used only as a quality gate, not to choose
-the tokens used below.  Images remain at native resolution, so all three
-images in a triple have the same visual-token grid.  The model, prompt,
-preprocessing, and feature-extraction convention are held fixed within
-each model across the intervention and evaluation streams.
+An open-vocabulary detector checks target absence in the base using
+threshold \(\tau_{\mathrm{abs}}\). Each composite must contain a detection
+of its inserted category with confidence at least
+\(\tau_{\mathrm{det}}\) and intersection-over-union at least
+\(\tau_{\mathrm{IoU}}\) with the paste footprint. The footprint must also
+have nonempty overlap with the input visual-token grid. This spatial
+check is confined to intervention quality control.
+To preserve the sampled competitor distribution after filtering, a
+rejected triple is regenerated for the same category pair, with new base,
+donor, and placement samples. Competitor draws are fixed before this
+filtering, and accepted counts are recorded for each target--competitor
+pair. \(N_c\) denotes the accepted discovery budget for target \(c\);
+each record contributes to its designated target's estimate.
+% Fill in N_c, p_A, detector identity/prompts, thresholds, and regeneration
+% limits from the final run configuration. Report any unfilled pair budgets.
 
-\subsection{Feature-Direction Estimation}
-\label{sec:direction_estimation}
+All three images in a triple have the same dimensions and use identical
+preprocessing settings, yielding aligned visual-token positions.
+The model, fixed prompt, preprocessing, and hidden-state extraction
+convention are also held fixed between discovery and evaluation.
 
-\paragraph{Symmetric token selection.}
-Most visual tokens are only weakly affected by a small insertion.  For each
-triple, we therefore identify the \(K\) positions most affected by either
-composite:
+\subsection{Intervention-Response Weighting}
+\label{sec:response_weighting}
+
+The paste footprint specifies where the input was edited, but we do not
+assume that it specifies the hidden states carrying the category
+information. Instead, for each triple, we measure how strongly each
+visual token responds to either insertion:
 \begin{equation}
     \begin{aligned}
-        \sigma_{it}
-        &=
-        \left\lVert h_t(I_i^0)-h_t(I_i^c)\right\rVert_2
-        +
-        \left\lVert h_t(I_i^0)-h_t(I_i^{c'})\right\rVert_2, \\
-        \mathcal{S}_i
-        &=
-        \operatorname{TopK}_t(\sigma_{it},K).
+        e_{it}
+        &=\tfrac12\bigl(
+            \|h_t(I_i^c)-h_t(I_i^0)\|_2\\
+        &\hspace{3.5em}
+            +\|h_t(I_i^{q_i})-h_t(I_i^0)\|_2
+        \bigr),\\
+        \alpha_{it}
+        &=\frac{e_{it}}{\sum_{j=1}^{T_i}e_{ij}+\epsilon},
     \end{aligned}
-    \label{eq:token_selection}
+    \label{eq:response_weights}
 \end{equation}
-This rule is invariant to exchanging \(c\) and \(c'\), ensuring that both
-composites are compared at the same token positions.  It is computed
-separately within each image and uses no paste mask or token label.
+where \(T_i=T(I_i^0)\) and \(\epsilon>0\) stabilizes the denominator.
+All visual tokens are eligible. This weighting is symmetric in the two
+insertions and assigns greater weight to positions with larger
+intervention responses. It provides an estimate of latent support,
+although strong responses may also include generic insertion or edit
+effects.
 
-\paragraph{Paired composite contrast.}
-We average the direct difference between the two composites over the
-selected positions:
+We use these same weights for both composites to form the direct contrast
 \begin{equation}
-    d_i
+    d_i^{c,q_i}
     =
-    \frac{1}{K}\sum_{t\in\mathcal{S}_i}
-    \left[h_t(I_i^c)-h_t(I_i^{c'})\right].
+    \sum_{t=1}^{T_i}\alpha_{it}
+    \left[h_t(I_i^c)-h_t(I_i^{q_i})\right].
     \label{eq:paired_contrast}
 \end{equation}
-The base image affects which positions are selected but does not enter this
-contrast.  To motivate the construction, consider the additive model
+The base determines the weights; the vector being pooled compares the
+two inserted categories. Exchanging the composites preserves the weights
+and reverses the contrast. Thus support estimation depends on response
+magnitude, while the signed contrast captures how the two categories
+differ under matched conditions. A triple with zero response at every
+token contributes a zero contrast.
+
+\subsection{Balanced Contrast Averaging}
+\label{sec:direction_estimation}
+
+For each category, we average its contrasts and normalize the result:
 \begin{equation}
-    h_t(I_i^c)
+    \widetilde g_c=\frac{1}{N_c}\sum_{i=1}^{N_c}d_i^{c,q_i},
+    \qquad
+    g_c=\frac{\widetilde g_c}{\|\widetilde g_c\|_2}.
+    \label{eq:direction_average}
+\end{equation}
+The sign is fixed by subtracting the competitor composite from the target
+composite. The resulting direction summarizes the target's contrast
+against the sampled concept menu. Normalization is applied after
+averaging, so contrast magnitudes contribute to the estimate.
+A category mean with norm at or below a fixed numerical tolerance is
+reported as an extraction failure.
+
+\paragraph{Category-relative interpretation.}
+To motivate this estimator, consider the shared-nuisance model
+\begin{equation}
+    h_t(I_i^z)
     =
-    h_t(I_i^0)+e_{it}+o_{it}+g_c+\epsilon_{it}^c,
+    h_t(I_i^0)+\nu_{it}+a_{it}u_z+\xi_{it}^z,
+    \quad z\in\{c,q_i\}.
     \label{eq:contrast_decomposition}
 \end{equation}
-where \(e_{it}\) is a shared edit contribution, \(o_{it}\) is a
-category-independent object-presence contribution, and
-\(\epsilon_{it}^c\) collects object-specific interactions and imperfectly
-matched compositing effects.  Under this shared-nuisance model,
+Here \(u_z\) is an idealized category vector, \(\nu_{it}\) collects shared
+edit and generic object-presence effects, and \(a_{it}\) is an unknown
+support coefficient shared by the two insertions. Residuals
+\(\xi_{it}^z\) include departures from these matching assumptions.
+Subtraction cancels the shared nuisance in this model, yielding
 \begin{equation}
-    d_i
-    =
-    g_c-g_{c'}+\eta_i,
-    \qquad
-    \eta_i
-    =
-    \frac{1}{K}\sum_{t\in\mathcal{S}_i}
-    \left(\epsilon_{it}^c-\epsilon_{it}^{c'}\right).
+    \begin{aligned}
+        d_i^{c,q_i}&=\beta_i(u_c-u_{q_i})+\eta_i,\\
+        \beta_i&=\sum_t\alpha_{it}a_{it},\\
+        \eta_i&=\sum_t\alpha_{it}
+            (\xi_{it}^c-\xi_{it}^{q_i}).
+    \end{aligned}
     \label{eq:contrast_identity}
 \end{equation}
-Thus the matched base, site, area, and edit suppress scene and
-category-independent intervention effects, while departures from the
-additive assumption remain explicit in \(\eta_i\).
-
-\paragraph{Joint estimation.}
-Stacking the \(n\) contrasts gives \(Y\in\mathbb{R}^{n\times D}\).  Let
-\(A\in\{-1,0,1\}^{n\times C}\) be the signed incidence matrix of the
-category-pair graph: row \(i\) has \(+1\) at \(c\), \(-1\) at \(c'\), and
-zeros elsewhere.  We jointly estimate all directions by
+The support-dependent gain \(\beta_i\) is retained explicitly.
+If its conditional expectation is positive and independent of the
+competitor, \(\mathbb E[\beta_i\mid c,q_i]=b_c>0\), and the
+weighted residual satisfies \(\mathbb E[\eta_i\mid c,q_i]=0\),
+uniform competitor sampling gives
 \begin{equation}
-    \widehat G
-    =
-    \argmin_{G\in\mathbb{R}^{C\times D}}\lVert AG-Y\rVert_F^2,
-    \qquad
-    \widehat G\leftarrow
-    \widehat G-\frac{1}{C}\mathbf{1}\mathbf{1}^{\top}\widehat G .
-    \label{eq:direction_fit}
+    \begin{aligned}
+        \mathbb E[\widetilde g_c]
+        &=b_c\left(u_c-\frac{1}{C-1}\sum_{q\neq c}u_q\right)\\
+        &=b_c\frac{C}{C-1}(u_c-\bar u),
+        \qquad \bar u=\frac1C\sum_{j=1}^C u_j.
+    \end{aligned}
+    \label{eq:centroid_interpretation}
 \end{equation}
-The second operation fixes the sum-zero gauge
-\(\sum_c\widehat g_c=0\).  This is necessary because adding the same vector
-to every \(g_c\) leaves all pairwise contrasts unchanged.  Consequently,
-\(\widehat g_c\) represents category \(c\) relative to the menu centroid,
-not an absolute presence vector.  The matrix \(A^\top A\) is the weighted
-graph Laplacian, so the directions are identifiable up to this common
-shift exactly when the observed category-pair graph is connected; we
-verify connectivity before fitting.
+Under these assumptions, the expected unnormalized estimate aligns with
+the category's deviation from the menu mean. This is an interpretation of
+the estimator, not an exact recovery guarantee: response weighting can
+introduce competitor-dependent gains and biased residuals, and finite
+competitor samples introduce additional variation. We therefore assess
+the direction by its transfer to natural images.
 
-\subsection{Read-Out}
+\subsection{Natural-Image Readout and Evaluation}
 \label{sec:presence_evaluation}
 
-For a held-out natural image \(I\), the score uses only its hidden-state
-matrix and \(\widehat G\).  We first center all visual tokens by their
-image mean,
+For a held-out natural image \(I\), we compute the cosine alignment
+between each visual token and the unit category direction:
 \begin{equation}
-    x_t
+    r_{tc}(I)
     =
-    h_t(I)-\overline h(I),
-    \qquad
-    \overline h(I)
-    =
-    \frac{1}{T(I)}\sum_{j=1}^{T(I)}h_j(I).
-    \label{eq:image_centering}
+    \frac{h_t(I)^\top g_c}{\max\{\|h_t(I)\|_2,\epsilon\}}.
+    \label{eq:token_alignment}
 \end{equation}
-Centering reduces image-level offsets before scores are compared across
-images; it is separate from the gauge correction below.
+The readout uses raw hidden states at the same layer and extraction locus
+as discovery. It scores all visual tokens without a mask, bounding box,
+or token-level category label.
 
-A raw projection onto \(\widehat g_c\) is not a valid pooled score because
-it depends on the unidentified common shift of the directions.  We instead
-compute, at each token, the margin over the strongest competing category,
-then average the \(k\) largest margins:
-\begin{align}
-    m_t(c)
-    &=
-    x_t^\top\widehat g_c
-    -
-    \max_{q\neq c}x_t^\top\widehat g_q,
-    \label{eq:token_margin}\\
-    \mathcal{P}_c(I)
-    &=
-    \operatorname{TopK}_t
-    \left(m_t(c),\min\{k,T(I)\}\right), \nonumber\\
-    s_c(I)
-    &=
-    \frac{1}{|\mathcal{P}_c(I)|}
-    \sum_{t\in\mathcal{P}_c(I)}m_t(c).
+We aggregate a fixed fraction of the highest-scoring tokens:
+\begin{equation}
+    \begin{aligned}
+        K_I&=\max(1,\lceil\rho T(I)\rceil),\\
+        \mathcal P_c(I)
+        &=\operatorname{TopKIndices}_t(r_{tc}(I),K_I),\\
+        s_c(I)&=\frac1{K_I}\sum_{t\in\mathcal P_c(I)}r_{tc}(I).
+    \end{aligned}
     \label{eq:presence_score}
-\end{align}
-For any common shift \(v\), replacing every direction by
-\(\widehat g_c+v\) adds the same \(x_t^\top v\) to all category projections
-at token \(t\), which cancels in \(m_t(c)\) before pooling.  The read-out is
-therefore gauge-invariant.  All visual tokens are eligible for
-\(\mathcal{P}_c(I)\); no mask, token label, or ground-truth background is
-used.  The fitting budget \(K\) and pooling budget \(k\) are distinct
-parameters and are fixed without evaluation-set tuning.
+\end{equation}
+We use \(\rho=0.05\) as the default pooling fraction, fixed without
+evaluation-set tuning. Ties are resolved by token index. Top-fraction
+pooling allows a subset of tokens to provide evidence for category
+presence and scales the pooling budget with the image's token count.
+It does not guarantee invariance to resolution or object size.
+% Confirm epsilon and the extraction-failure tolerance against the
+% implementation; specify them with the remaining numerical settings.
+
+Let \(\mathcal E\) be the natural-image evaluation set and
+\(y_c(I)\in\{0,1\}\) indicate whether category \(c\) is annotated as
+present. We evaluate the frozen scores using
+\begin{equation}
+    \begin{aligned}
+        \operatorname{AUC}_c
+        &=\operatorname{ROC\!-\!AUC}
+            \bigl(\{y_c(I)\}_{I\in\mathcal E},
+                  \{s_c(I)\}_{I\in\mathcal E}\bigr),\\
+        \operatorname{AUC}_{\mathrm{macro}}
+        &=\frac1C\sum_{c\in\mathcal C}\operatorname{AUC}_c.
+    \end{aligned}
+    \label{eq:presence_auc}
+\end{equation}
+The headline statistic is the raw macro AUC. It requires a valid
+direction and both positive and negative evaluation examples for every
+category in the fixed menu; invalid categories are reported explicitly
+and are not silently dropped from the average.
+
+As a control, we draw independent Gaussian vectors
+\(v_c^{(b)}\sim\mathcal N(0,I_D)\), normalize them to unit length, and
+substitute them for \(g_c\) in the identical readout. We use 25 repetitions
+and report the mean and standard deviation of their macro AUCs separately.
+This control measures the association obtained from random directions
+under the same token geometry and pooling rule. Presence AUC evaluates
+the transfer of an intervention-derived direction; it does not establish
+causal use of that direction in the model's generated answers.
