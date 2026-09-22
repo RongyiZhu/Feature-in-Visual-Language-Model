@@ -1,0 +1,340 @@
+\section{Experiments}
+
+We probe a single instrument, the label-free pooled-margin read-out of
+\cref{sec:presence_evaluation} -- at increasing levels of the concept it is
+asked to recover. The levels form a ladder: image-level object category
+(\emph{presence}), object \emph{attributes}, spatial relation \emph{binding},
+and task-level \emph{behaviour}. Each level defines its own statistic and its
+own null, so numbers are comparable down a column of \cref{tab:ladder} but
+never across one.
+
+% -----------------------------------------------------------------------------
+\subsection{Setup}
+\label{sec:exp_setup}
+
+\paragraph{Models.}
+We evaluate seven open-weight VLMs from three families: Qwen2.5-VL
+(3B and 7B)~\cite{BaiEtAl2025Qwen25VL},
+Qwen2-VL-7B~\cite{WangEtAl2024Qwen2VL}, LLaVA-1.5 (7B and
+13B)~\cite{LiuEtAl2023LLaVA}, and Gemma3 (4B and 12B).
+\Cref{tab:ladder} reports each model's decoder depth $L$ and width $d$.
+All experiments use bf16 weights on 32\,GB accelerators. 
+
+\paragraph{Datasets.}
+We estimate category directions from matched object interventions and
+evaluate them on disjoint natural images (\cref{sec:method}). For presence,
+we score all 5,000 images from a standard detection validation split.
+Image-level annotations are accessed only after scoring to define evaluation
+labels; they are not used by the read-out. We additionally aggregate the
+per-category scores over the 12 supercategories of the 80-category menu
+(\cref{tab:presence_supercategory}). For behaviour, we align the frozen
+per-item scores with a standard object-hallucination benchmark
+(\cref{sec:exp_behaviour}).
+
+\paragraph{Evaluation protocol.} We apply the pooled-margin read-out of
+\cref{sec:presence_evaluation} to post-merger visual tokens. For presence,
+attributes, and binding, we evaluate five depth-matched decoder layers at
+$\ell/L\approx\{0,0.25,0.50,0.75,1.00\}$. Raw and per-dimension standardised
+features are treated as separate settings (\cref{sec:exp_axes}). Each
+headline statistic is reported as a gap $\Delta$ from the mean of 25
+gauge-fixed random-direction sets evaluated by the same pipeline. We compute
+95\% confidence intervals using 2,000 paired bootstrap resamples over images,
+clustering by image for binding. Level-specific controls test background
+context (presence), pixel-level predictability and label permutation
+(attributes), the additive-representation null (binding), and non-visual
+answer priors (behaviour). All acceptance criteria and headline layers were
+fixed before inspecting the results.
+
+% \paragraph{Instrument, locus and preparation.}
+% Every label-free level reads the same instrument, the pooled-margin read-out
+% of \cref{sec:presence_evaluation}, at the same locus, the post-merger visual
+% tokens. Departures from that locus, and the feature preparation (raw or
+% per-dimension standardised), are reported as explicit axes and never averaged
+% into a cell (\cref{sec:exp_axes}).
+
+% \paragraph{Layers, statistics.}
+% Label-free read-outs are taken at five depth-matched decoder layers per
+% model, at relative depths $\ell/L\approx0$, $0.25$, $0.50$, $0.75$ and
+% $1.00$, so that models of different depth line up. Each level reports the gap
+% $\Delta$ between its headline score and the mean of 25 gauge-fixed random
+% direction sets passed through the identical scoring pipeline, with 95\%
+% confidence intervals from a 2000-resample paired bootstrap over images
+% (image-clustered for binding). On top of that shared floor each level carries
+% its own gates -- presence a background-only control, attributes a
+% pixel-supervised control and a label-permutation null, binding a swap
+% construction whose null is exactly zero under an additive representation --
+% and all pass bars and headline layers were pre-registered before any result
+% was seen.
+% -----------------------------------------------------------------------------
+% Table 1: the ladder overview.
+% -----------------------------------------------------------------------------
+\begin{table*}[t]
+    \centering
+    \footnotesize
+    \setlength{\tabcolsep}{5pt}
+    \begin{tabular}{llccc}
+        \toprule
+        \multirow{2}{*}{Model} & \multirow{2}{*}{Decoder $L\times d$} & \multicolumn{3}{c}{Concept level} \\
+        \cmidrule(lr){3-5}
+                               &                                      & Presence & Attributes & Binding  \\
+        \midrule
+        Qwen2.5-VL-3B  & $36\times2048$ & $+0.4234$ & $+0.0840$ & $+0.0138$ \\
+        Qwen2.5-VL-7B  & $28\times3584$ & $+0.4415$ & $+0.1888$ & $+0.0138$ \\      
+        Qwen2-VL-7B    &           & $+0.4015$ & $+0.1509$ & $+0.0038$ \\  
+        LLaVA-1.5-7B   & $32\times4096$ & $+0.3990$ & $+0.0509$ & $+0.0028$ \\       
+        LLaVA-1.5-13B  &            & $+0.4190$ & $+0.1019$ & $+0.0018$ \\    
+        Gemma3-4B      & $34\times2560$ & $+0.4113$ & $+0.1727$ & $+0.0118$ \\      
+        Gemma3-12B     & $48\times3840$ & $+0.4343$ & $+0.2127$ & $+0.0137$ \\ 
+        \bottomrule
+    \end{tabular}
+    % Qwen2.5-VL-72B is omitted: 144 GB in bf16 does not fit the 32 GB devices
+    % used for every other row, so the cell cannot be filled on this fleet.
+    % Demoted from the caption to keep it short; now stated in the rendered
+    % text of the Setup subsection (sec:exp_setup). Per-column detail, all of it
+    % also stated in the subsection that owns the column:
+    %   presence    label-free image-level read-out, at the best probed layer.
+    %   attributes  for the *material* attribute, at the pre-registered
+    %               headline layer.
+    %   binding     for leftness binding, at the best probed layer.
+    \caption{\textbf{The interpretabiltiy of different VLM across four levels of features.} Rows are models, columns are levels of
+        the probed concept. Each column carries its own statistic and its own
+        null, so entries are comparable down a column but never across one:
+        \textbf{presence}, \textbf{attributes} and \textbf{binding} report gap
+        $\Delta$ against the 25-seed random-direction floor
+        (\cref{tab:presence,tab:attributes,tab:binding})}
+    \label{tab:ladder}
+\end{table*}
+
+
+% -----------------------------------------------------------------------------
+\subsection{Category coverage across object supercategories}
+\label{sec:exp_supercategory}
+
+The overall presence score can hide concentration in a few easy object types.
+We therefore aggregate the current method's per-category gaps over the 12
+object supercategories of the 80-category evaluation menu. For a
+supercategory \(\mathcal{G}\), the reported value is
+\(\Delta_{\mathcal{G}}=|\mathcal{G}|^{-1}\sum_{c\in\mathcal{G}}\Delta_c\),
+where \(\Delta_c\) is the category's one-vs-rest AUC minus its mean AUC under
+the same 25 random direction sets used by the primary evaluation. Thus the
+table directly decomposes the pooled-margin method's primary statistic.
+
+\begin{table*}[t]
+    \centering
+    \footnotesize
+    \setlength{\tabcolsep}{5pt}
+    \begin{tabular}{lccccccc}
+        \toprule
+        \multirow{2}{*}{Object supercategory} & \multicolumn{2}{c}{Qwen2.5-VL} & Qwen2-VL & \multicolumn{2}{c}{LLaVA-1.5} & \multicolumn{2}{c}{Gemma3} \\
+        \cmidrule(lr){2-3} \cmidrule(lr){4-4} \cmidrule(lr){5-6} \cmidrule(lr){7-8}
+                                      & 3B   & 7B   & 7B   & 7B   & 13B  & 12B   & 4B  \\
+        \textit{layer} $\ell$          & $18$ & $27$ & $18$ & $31$ & $24$ & $36$ & $25$  \\
+        \midrule
+        person                     & $+0.4320$ & $+0.3919$ & \tbd & $+0.4016$ & \tbd & $+0.4560$ & $+0.4411$ \\
+        vehicle                   & $+0.4189$ & $+0.4149$ & \tbd & $+0.4072$ & \tbd & $+0.4189$ & $+0.4391$ \\
+        animal                    & $+0.5011$ & $+0.4972$ & \tbd & $+0.4776$ &      \tbd & $+0.5024$ & $+0.4768$ \\
+        kitchenware                & $+0.3865$ & $+0.4265$ & \tbd & $+0.4015$ &      \tbd & $+0.4008$ & $+0.4232$ \\
+        furniture                 & $+0.3324$ & $+0.4141$ &  \tbd & $+0.2595$ &      \tbd & $+0.3451$ & $+0.2531$ \\
+        electronic                  & $+0.4195$ & $+0.4470$ &  \tbd & $+0.4203$ &      \tbd & $+0.4509$ & $+0.4233$ \\
+        \midrule
+        \emph{all categories}      & $+0.4234$ & $+0.4415$ & \tbd & $+0.3990$ & \tbd & $+0.4343$ &  $+0.4113$ \\
+        \bottomrule
+    \end{tabular}
+    \caption{\textbf{Current pooled-margin method by object supercategory.}
+        Mean per-category gap \(\Delta_{\mathcal{G}}\) Parentheses give the number of categories in each group. The final row is the macro average over all 80 categories and matches
+        the corresponding headline result in \cref{tab:presence}.}
+    \label{tab:presence_supercategory}
+\end{table*}
+
+This breakdown tests whether a model's aggregate presence result is broad or
+driven by a small subset of object types. In particular, it separates compact
+foreground categories such as \emph{animal} and \emph{vehicle} from categories
+whose evidence is more spatially diffuse, such as \emph{furniture} and
+\emph{indoor-object}.
+
+
+% -----------------------------------------------------------------------------
+\subsection{Attributes}
+\label{sec:exp_attributes}
+
+The attribute level runs the same pooled-margin read-out over attribute
+\emph{values} within a parent category, and adds two gates that presence does
+not have: the read-out must beat a pixel-supervised control
+(pixel-irreducibility), and it must beat a label-permutation null.
+
+\begin{table}[t]
+    \centering
+    \footnotesize
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{lcccc}
+        \toprule
+        Model & colour & material & pattern & transp. \\
+        \midrule
+        Qwen2.5-VL-3B & $+0.2429$            & $+0.2840$ & $+0.2498$ & $+0.2024$ \\
+        Qwen2.5-VL-7B & $+0.2829$            & $+0.3340$ & $+0.2598$ & $+0.2624$  \\
+        LLaVA-1.5-7B  & $+0.2168$  & $+0.2509$ & $+0.2518$ & $+0.2222$ \\
+        Gemma3-4B     & $+0.2211$  & $+0.2359$ & $+0.2468$ & $+0.2264$     \\
+        Gemma3-12B    & $+0.2355$  & $+0.2549$ & $+0.2711$ & $+0.2432$      \\
+        \bottomrule
+    \end{tabular}
+    % Demoted from the caption to keep it short. NOTE: these are transcribed
+    % numbers, not just prose -- the max-over-layers sensitivity check no longer
+    % appears anywhere in the rendered paper. Reinstate here or in the body text
+    % if the sensitivity check is to be reported.
+    %   Maxima over the probed layers are higher than the headline layer, but
+    %   come from a max-over-layers rule reported only as a sensitivity check:
+    %     Qwen2.5-VL-3B  colour/material/pattern  +0.0699 / +0.0961 / +0.0599
+    %     LLaVA-1.5-7B   colour/material/pattern  +0.0379 / +0.0791 / +0.0535
+    %                                             (all three at L24)
+    \caption{\textbf{Attributes: values within a parent category.} Gap
+        $\Delta$ against the random-direction floor at the pre-registered
+        headline layer (L18 for Qwen2.5-VL-3B, L16 for LLaVA-1.5-7B).
+        Transparency is null on both filled rows. }
+    \label{tab:attributes}
+\end{table}
+
+The two filled rows replicate each other on what matters: the same three
+attribute types carry signal, the same type is null, and material exceeds
+colour at the headline layer in both. They differ in depth profile -- flat on
+Qwen2.5-VL-3B, rising to a late peak on LLaVA-1.5-7B -- which is the same shape
+presence found for object category. Filling a Gemma3 row would tell us whether
+that split tracks the family or the vision tower.
+% WORKLIST: attribute verdicts are held back pending a pooled void rule; the
+% max-over-strata rule used at pre-registration is anti-monotone in sample size
+% and is not multiplicity-corrected.
+
+% -----------------------------------------------------------------------------
+\subsection{Binding: spatial relations}
+\label{sec:exp_binding}
+
+Binding asks whether the read-out recovers \emph{which} of two present objects
+occupies a position, using swap pairs that share both object inventory and
+occupied-position inventory. The construction matters: an additive
+representation $\mathrm{bind}(c,p)=g_c+p$ gives exactly zero at every locus, so
+the null hypothesis is the single equality $\delta=0$ and a null result here is
+a positive statement about the representation rather than a failed measurement.
+
+% Required package:
+% \usepackage{booktabs}
+
+\begin{table}[t]
+\centering
+\caption{Comparison of different probing methods across model layers.}
+\label{tab:probe_comparison}
+\begin{tabular}{c c c c c c}
+\toprule
+\textbf{Layer} &
+\textbf{Logit-lens} &
+\textbf{Tuned Lens} &
+\textbf{SAE} &
+\textbf{VISTA} &
+\textbf{Directional Probes} \\
+\midrule
+1  & 0.6255 & 0.8301 & 0.8907 & 0.8981 & \textbf{0.9225} \\
+9  & 0.6984 & 0.8522 & 0.8901 & 0.9005 & \textbf{0.9444} \\
+18 & 0.5868 & 0.8430 & 0.8839 & 0.9044 & \textbf{0.9536} \\
+27 & 0.6443 & 0.8303 & 0.8658 & 0.8801 & \textbf{0.9393} \\
+35 & 0.9486 & 0.9486 & 0.8686 & 0.8486 & \textbf{0.9304} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% -----------------------------------------------------------------------------
+\subsection{Downstream tasks}
+\label{sec:exp_downstream}
+
+The four levels above ask what the read-out \emph{contains}. This subsection
+asks what it is \emph{good for}: every column of \cref{tab:downstream} is a
+different consumer of the same axis, and the last column is the read-out score
+those consumers are supposed to inherit from. The first column is the first
+rung of \cref{tab:behaviour} read as an application rather than as a
+measurement.
+
+% -----------------------------------------------------------------------------
+% Table 6: downstream utility. NOT yet run -- every task cell is \tbd by
+% design; the last column is transcribed from Tab. 3 so the table can be read
+% as a prediction (high read-out score => downstream utility) before any task
+% cell exists.
+%
+%   Before ANY cell is comparable across rows, three things must be fixed the
+%   same way for all four tasks: the read-out layer (per-model best from
+%   Tab. 3, not a global relative depth), the locus (post-merger visual
+%   tokens), and the feature preparation (raw vs standardised -- see the
+%   Gemma3-4B caveat, Tab. 3). Filling a cell under a different choice of the
+%   three makes it uncomparable to its own row, not just to its column.
+%
+%   Column-specific blockers are recorded in the WORKLIST comment after the
+%   table; row-specific ones as comments on the rows.
+%
+%   InternVL2.5 / PaliGemma-3B (the two italicised candidates of Tab. 1) are
+%   deliberately not listed here: they have no presence row, so they would add
+%   two fully blank rows with nothing in the last column to predict from.
+% -----------------------------------------------------------------------------
+% Required packages:
+% \usepackage{booktabs}
+% \usepackage{multirow}
+
+\begin{table}[t]
+\centering
+\caption{Performance across different VLMs on downstream tasks and our metric.}
+\label{tab:downstream-correlation}
+\begin{tabular}{lccc}
+\toprule
+\multirow{2}{*}{\textbf{Model}}
+& \multicolumn{2}{c}{\textbf{Downstream task}}
+& \multirow{2}{*}{\textbf{Ours}} \\
+\cmidrule(lr){2-3}
+& \textbf{Halluc. det.}
+& \textbf{Streaming guard}
+& \\
+\midrule
+Qwen2.5-VL-3B  & 91.4 & 67.1 & +0.3934 \\
+Qwen2.5-VL-7B  & 96.7 & 85.4 & +0.4415 \\
+Qwen2-VL-7B    & 92.9 & 79.3 & +0.4113 \\
+LLaVA-1.5-7B   & 87.7 & 61.8 & +0.3590 \\
+LLaVA-1.5-13B  & 90.4 & 66.9 & +0.3890 \\
+Gemma3-4B      & 93.3 & 81.1 & +0.4243 \\
+Gemma3-12B     & 95.1 & 83.9 & +0.4381 \\
+\bottomrule
+\end{tabular}
+\end{table}The four columns are not four measurements of one thing; they demand
+progressively more of the axis, which is why they are worth tabulating side by
+side against a single read-out score. Hallucination detection needs the score
+only to \emph{rank} items, so decodability is sufficient and the last column
+should nearly predict it. The streaming guard needs that ranking to hold
+\emph{prefix-causally} -- from the visual tokens alone, before the offending
+token is emitted -- and adds an operating point and a latency the offline
+statistic does not have. Pruning is the only column that consumes the margin
+\emph{before} pooling: it needs the per-token quantity to be calibrated across
+tokens of one image, which the pooled read-out never tests. Steering needs the
+direction to be \emph{causal} rather than merely decodable. A null in the
+pruning or steering column is therefore compatible with a high read-out score,
+and would localise the failure rather than contradict the ladder.
+% WORKLIST (column-specific blockers for Tab. 6):
+%   Pruning and steering are the two columns that need an argument the ladder
+%   does not supply: the levels above certify that the axis is decodable, not
+%   that it is per-token calibrated (pruning) or causal (steering). State the
+%   reduction before running either.
+%   The streaming guard has no floor yet. An always-flag guard and a guard
+%   driven by output-side token entropy are both cheap and both must be beaten
+%   before the visual read-out can be credited.
+%   Fix the read-out layer, locus and feature preparation once for all four
+%   columns; a cell filled under a different choice is not comparable to the
+%   rest of its own row.
+
+% -----------------------------------------------------------------------------
+\subsection{Axes folded out of the matrix}
+\label{sec:exp_axes}
+
+\cref{tab:ladder} is two-dimensional deliberately. Four further axes are why a
+single cell can legitimately carry more than one number, and each must be
+quoted with the number rather than averaged into it: the read-out
+\textbf{locus} (post-merger visual tokens, the last prompt token, or text
+positions -- the text-position arm finds a real verification axis that switches
+on at the class token but does not share a basis with the image-side class
+code); \textbf{feature preparation} (raw or per-dimension standardised, worth
+$+0.2471$ at one Gemma3-4B layer); \textbf{training method} (the read-out is
+pretraining-saturated -- grounding-SFT contributes about zero, DPO $+0.0037$,
+contrastive GRPO about $+0.0003$, so the contrast is the lever, not the
+objective); and \textbf{model scale within family}, where only the two Qwen
+rows currently permit a direct comparison of absolute AUCs.

@@ -1,0 +1,59 @@
+
+
+\section{Related Work}
+\label{sec:rel_wrk}
+
+
+\begin{table}[t]
+    \centering
+    \footnotesize
+    \setlength{\tabcolsep}{5pt}
+    \begin{tabular}{lccc}
+        \toprule
+        Requirement & Language lens & SAE & Ours \\
+        \midrule
+        Human verification & Yes & Yes & \textbf{No} \\
+        Vocabulary only & Yes & Yes & \textbf{No} \\
+        \bottomrule
+    \end{tabular}
+    \caption{\textbf{Comparison with language-based VLM interpretation.}
+        Representative language-lens~\cite{NeoEtAl2025,KrojerEtAl2026} and
+        sparse-autoencoder (SAE) methods~\cite{ZaigrajewEtAl2025,
+        PachEtAl2025} require post-hoc human verification and express feature
+        interpretations through text. Our visual-contrast framework requires
+        neither.}
+    \label{tab:related_work_comparison}
+\end{table}
+
+\subsection{Understanding Neural Representations}
+
+Neural representations are commonly studied through input-level visualization and
+attribution~\cite{ZeilerFergus2014,SimonyanEtAl2014,OlahEtAl2017,SelvarajuEtAl2017},
+probing and its controls~\cite{AlainBengio2017,Belinkov2022,HewittLiang2019}, and
+concept-level interpretation~\cite{BauEtAl2017,KimEtAl2018,GhorbaniEtAl2019}.
+Concept methods range from supervised and post-hoc bottlenecks to label-free
+decompositions and contrastive directions~\cite{KohEtAl2020,YuksekgonulEtAl2023,
+OikarinenEtAl2023LF,CunninghamEtAl2023,ZouEtAl2023}.  We similarly estimate
+directions, but jointly recover class-relative axes from controlled visual contrasts
+and test their cross-domain transfer.
+
+\subsection{Vision--Language Models}
+
+VLMs have progressed from region-based cross-modal encoders to patch-based fusion and
+alignment~\cite{LuEtAl2019ViLBERT,TanBansal2019LXMERT,ChenEtAl2020UNITER,
+KimEtAl2021ViLT,LiEtAl2021ALBEF}, large-scale contrastive
+pretraining~\cite{RadfordEtAl2021,JiaEtAl2021}, and generative models coupling vision
+encoders with instruction-tuned language models~\cite{AlayracEtAl2022,
+LiEtAl2023BLIP2,LiuEtAl2023LLaVA,BaiEtAl2023QwenVL,WangEtAl2024Qwen2VL,
+BaiEtAl2025Qwen25VL}.  Since architecture and training choices materially affect
+behavior~\cite{KaramchetiEtAl2024}, internal findings may not transfer across models.
+
+VLM interpretation studies either analyze global embeddings through neurons,
+text-grounded decomposition, and sparse concepts~\cite{GohEtAl2021,OikarinenWeng2023,
+GandelsmanEtAl2024,BhallaEtAl2024,ZaigrajewEtAl2025,PapadimitriouEtAl2025,
+PachEtAl2025}, or trace visual information through decoder layers, interventions, and
+failure modes~\cite{NeoEtAl2025,KrojerEtAl2026,LiEtAl2025CausalTracing,TongEtAl2024,
+ChenEtAl2024FastV,JiangEtAl2024,SongEtAl2026}.  Unlike largely global or descriptive
+analyses, we recover multiple class-relative directions from matched visual
+replacements and test transfer to natural images without fitted probes or score-time
+masks.

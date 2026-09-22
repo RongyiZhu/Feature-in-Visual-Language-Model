@@ -1,0 +1,200 @@
+\section{Method}
+\label{sec:method}
+We firstly introduce the proposed method as follows:
+
+\subsection{Overview and Representation}
+\label{sec:method_overview}
+
+Let a frozen VLM map an image \(I\) to the layer-\(\ell\) hidden states at
+its post-merger visual-token positions,
+\begin{equation}
+    H^{(\ell)}(I)
+    =
+    \left[h_1^{(\ell)}(I),\ldots,h_{T(I)}^{(\ell)}(I)\right]^\top
+    \in\mathbb{R}^{T(I)\times D},
+    \label{eq:visual_representation}
+\end{equation}
+where \(T(I)\) is the number of visual tokens and \(D\) is the decoder
+width.  We estimate, independently at each analyzed layer, one direction
+\(g_c^{(\ell)}\in\mathbb{R}^D\) for each category \(c\) in a fixed menu
+\(\mathcal{C}\).  We suppress the layer superscript below.
+
+Our pipeline has two stages.  First, we construct matched image triples and
+use their hidden-state contrasts to estimate category-relative directions
+\(\widehat G=[\widehat g_1,\ldots,\widehat g_C]^\top\).  Second, we apply
+\(\widehat G\) to disjoint natural images using a gauge-invariant,
+mask-free read-out.  Category annotations and instance masks are used to
+construct and quality-control the interventions, and later to define
+evaluation labels, but they are never used to select tokens or construct
+the primary score on an evaluation image.  We use \emph{label-free} below
+only in this score-time sense.
+
+\todo
+
+\subsection{Matched Pairwise Interventions}
+\label{sec:matched_interventions}
+
+Let \(\mathcal{C}\) be a fixed menu of \(C\) categories.  For every
+unordered pair \(\{c,c'\}\subset\mathcal{C}\), we construct records
+\[
+    \mathcal{T}_i=(I_i^0,I_i^c,I_i^{c'}),
+\]
+where \(I_i^0\) is a natural base image containing neither category,
+\(I_i^c\) contains a real cutout of category \(c\), and \(I_i^{c'}\)
+contains a real cutout of category \(c'\).  The cutouts are extracted from
+ground-truth instance polygons in the training split; no generated pixels
+are used.  The base and donor images are disjoint from the natural images
+used for evaluation.
+
+The two cutouts are inserted into the same base image at the same site
+center and target pixel area.  Their aspect ratios are preserved, while
+the target normalized area \(a_i\) is drawn from a shared,
+category-independent distribution \(p_A\).  This prevents object scale
+from becoming a class cue.  We sample sites that do not overlap annotated
+objects and composite each cutout using the same alpha blending and local
+color-harmonization procedure.  Each composite is byte-identical to the
+base outside its paste footprint.
+
+An open-vocabulary detector rejects a base when either target category has
+confidence above an absence threshold \(\tau_{\mathrm{abs}}\).  A triple is
+retained only when the intended category is detected in both composites
+with confidence at least \(\tau_{\mathrm{det}}\) and
+intersection-over-union at least \(\tau_{\mathrm{IoU}}\) with the paste
+footprint.  We additionally require each paste to have nonempty visual-token
+support; this mask-based check is used only as a quality gate, not to choose
+the tokens used below.  Images remain at native resolution, so all three
+images in a triple have the same visual-token grid.  The model, prompt,
+preprocessing, and feature-extraction convention are held fixed within
+each model across the intervention and evaluation streams.
+
+\subsection{Feature-Direction Estimation}
+\label{sec:direction_estimation}
+
+\paragraph{Symmetric token selection.}
+Most visual tokens are only weakly affected by a small insertion.  For each
+triple, we therefore identify the \(K\) positions most affected by either
+composite:
+\begin{equation}
+    \begin{aligned}
+        \sigma_{it}
+        &=
+        \left\lVert h_t(I_i^0)-h_t(I_i^c)\right\rVert_2
+        +
+        \left\lVert h_t(I_i^0)-h_t(I_i^{c'})\right\rVert_2, \\
+        \mathcal{S}_i
+        &=
+        \operatorname{TopK}_t(\sigma_{it},K).
+    \end{aligned}
+    \label{eq:token_selection}
+\end{equation}
+This rule is invariant to exchanging \(c\) and \(c'\), ensuring that both
+composites are compared at the same token positions.  It is computed
+separately within each image and uses no paste mask or token label.
+
+\paragraph{Paired composite contrast.}
+We average the direct difference between the two composites over the
+selected positions:
+\begin{equation}
+    d_i
+    =
+    \frac{1}{K}\sum_{t\in\mathcal{S}_i}
+    \left[h_t(I_i^c)-h_t(I_i^{c'})\right].
+    \label{eq:paired_contrast}
+\end{equation}
+The base image affects which positions are selected but does not enter this
+contrast.  To motivate the construction, consider the additive model
+\begin{equation}
+    h_t(I_i^c)
+    =
+    h_t(I_i^0)+e_{it}+o_{it}+g_c+\epsilon_{it}^c,
+    \label{eq:contrast_decomposition}
+\end{equation}
+where \(e_{it}\) is a shared edit contribution, \(o_{it}\) is a
+category-independent object-presence contribution, and
+\(\epsilon_{it}^c\) collects object-specific interactions and imperfectly
+matched compositing effects.  Under this shared-nuisance model,
+\begin{equation}
+    d_i
+    =
+    g_c-g_{c'}+\eta_i,
+    \qquad
+    \eta_i
+    =
+    \frac{1}{K}\sum_{t\in\mathcal{S}_i}
+    \left(\epsilon_{it}^c-\epsilon_{it}^{c'}\right).
+    \label{eq:contrast_identity}
+\end{equation}
+Thus the matched base, site, area, and edit suppress scene and
+category-independent intervention effects, while departures from the
+additive assumption remain explicit in \(\eta_i\).
+
+\paragraph{Joint estimation.}
+Stacking the \(n\) contrasts gives \(Y\in\mathbb{R}^{n\times D}\).  Let
+\(A\in\{-1,0,1\}^{n\times C}\) be the signed incidence matrix of the
+category-pair graph: row \(i\) has \(+1\) at \(c\), \(-1\) at \(c'\), and
+zeros elsewhere.  We jointly estimate all directions by
+\begin{equation}
+    \widehat G
+    =
+    \argmin_{G\in\mathbb{R}^{C\times D}}\lVert AG-Y\rVert_F^2,
+    \qquad
+    \widehat G\leftarrow
+    \widehat G-\frac{1}{C}\mathbf{1}\mathbf{1}^{\top}\widehat G .
+    \label{eq:direction_fit}
+\end{equation}
+The second operation fixes the sum-zero gauge
+\(\sum_c\widehat g_c=0\).  This is necessary because adding the same vector
+to every \(g_c\) leaves all pairwise contrasts unchanged.  Consequently,
+\(\widehat g_c\) represents category \(c\) relative to the menu centroid,
+not an absolute presence vector.  The matrix \(A^\top A\) is the weighted
+graph Laplacian, so the directions are identifiable up to this common
+shift exactly when the observed category-pair graph is connected; we
+verify connectivity before fitting.
+
+\subsection{Read-Out}
+\label{sec:presence_evaluation}
+
+For a held-out natural image \(I\), the score uses only its hidden-state
+matrix and \(\widehat G\).  We first center all visual tokens by their
+image mean,
+\begin{equation}
+    x_t
+    =
+    h_t(I)-\overline h(I),
+    \qquad
+    \overline h(I)
+    =
+    \frac{1}{T(I)}\sum_{j=1}^{T(I)}h_j(I).
+    \label{eq:image_centering}
+\end{equation}
+Centering reduces image-level offsets before scores are compared across
+images; it is separate from the gauge correction below.
+
+A raw projection onto \(\widehat g_c\) is not a valid pooled score because
+it depends on the unidentified common shift of the directions.  We instead
+compute, at each token, the margin over the strongest competing category,
+then average the \(k\) largest margins:
+\begin{align}
+    m_t(c)
+    &=
+    x_t^\top\widehat g_c
+    -
+    \max_{q\neq c}x_t^\top\widehat g_q,
+    \label{eq:token_margin}\\
+    \mathcal{P}_c(I)
+    &=
+    \operatorname{TopK}_t
+    \left(m_t(c),\min\{k,T(I)\}\right), \nonumber\\
+    s_c(I)
+    &=
+    \frac{1}{|\mathcal{P}_c(I)|}
+    \sum_{t\in\mathcal{P}_c(I)}m_t(c).
+    \label{eq:presence_score}
+\end{align}
+For any common shift \(v\), replacing every direction by
+\(\widehat g_c+v\) adds the same \(x_t^\top v\) to all category projections
+at token \(t\), which cancels in \(m_t(c)\) before pooling.  The read-out is
+therefore gauge-invariant.  All visual tokens are eligible for
+\(\mathcal{P}_c(I)\); no mask, token label, or ground-truth background is
+used.  The fitting budget \(K\) and pooling budget \(k\) are distinct
+parameters and are fixed without evaluation-set tuning.
