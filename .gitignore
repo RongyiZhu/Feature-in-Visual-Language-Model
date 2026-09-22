@@ -2,6 +2,7 @@
 *.aux
 *.bbl
 *.blg
+*.brf
 *.log
 *.out
 *.toc
@@ -23,3 +24,8 @@ rebuttal.pdf
 .DS_Store
 .vscode/
 *.swp
+artifacts/
+
+# Markdown notes (keep README)
+*.md
+!README.md

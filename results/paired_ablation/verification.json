@@ -1,0 +1,45 @@
+{
+  "scope": "Independent CPU metric recomputation from saved per-image scores; percentile intervals recomputed from saved bootstrap class AUCs. No new model inference or discovery resampling.",
+  "layers": {
+    "1": {
+      "max_macro_auc_error": 2.220446049250313e-16,
+      "max_macro_ap_error": 1.1102230246251565e-16,
+      "max_ci_endpoint_error": 3.6166273968685214e-16,
+      "images": 5000,
+      "score_columns": 300,
+      "bootstrap_draws": 2000
+    },
+    "9": {
+      "max_macro_auc_error": 2.220446049250313e-16,
+      "max_macro_ap_error": 1.1102230246251565e-16,
+      "max_ci_endpoint_error": 2.667543920129023e-16,
+      "images": 5000,
+      "score_columns": 300,
+      "bootstrap_draws": 2000
+    },
+    "18": {
+      "max_macro_auc_error": 2.220446049250313e-16,
+      "max_macro_ap_error": 1.1102230246251565e-16,
+      "max_ci_endpoint_error": 2.498001805406602e-16,
+      "images": 5000,
+      "score_columns": 300,
+      "bootstrap_draws": 2000
+    },
+    "27": {
+      "max_macro_auc_error": 1.1102230246251565e-16,
+      "max_macro_ap_error": 1.1102230246251565e-16,
+      "max_ci_endpoint_error": 2.220446049250313e-16,
+      "images": 5000,
+      "score_columns": 300,
+      "bootstrap_draws": 2000
+    },
+    "35": {
+      "max_macro_auc_error": 0.0,
+      "max_macro_ap_error": 1.1102230246251565e-16,
+      "max_ci_endpoint_error": 2.1206994493816467e-16,
+      "images": 5000,
+      "score_columns": 300,
+      "bootstrap_draws": 2000
+    }
+  }
+}

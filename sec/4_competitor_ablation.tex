@@ -1,0 +1,60 @@
+\subsection{Ablation: Competitor Diversity and Weighting}
+\label{sec:competitor_ablation}
+
+How should a limited discovery budget be distributed across competitors?
+We separate three choices: weighting observed pairs, varying the number of
+competitors, and selecting their semantic families. All variants retain
+paired subtraction and the cosine/top-5\% readout.
+
+\paragraph{Protocol.}
+We use frozen Qwen2.5-VL-3B-Instruct and two saved discovery collections:
+\emph{Core} (10 categories, 2,104 records, 45 observed pairs) and
+\emph{Extended} (76 categories, 16,609 records, 304 observed pairs).
+We refit directions from the saved contrasts and rescore all variants on
+the same reconstructed evaluation images: 5,000 COCO val2017 images and,
+for the additional OpenImages categories, 25,099 OpenImages images.
+Unverified OpenImages image--category labels are excluded.
+L18 is primary. Sampling comparisons average per-fit metrics over 20
+seeds on a common eligible category cohort. Confidence intervals (CIs)
+use 2,000 paired image-bootstrap draws within each source dataset and
+condition on these fixed fits; seed SD is reported separately.
+This is a follow-up analysis on previously examined validation data.
+
+\input{tables/competitor_budget}
+
+\paragraph{More competitors improve fixed-budget transfer.}
+We fix 32 records per category and vary the competitor count
+\(K\in\{2,4,8\}\), assigning \(32/K\) records to each competitor.
+Competitor subsets are nested within each seed, with shared record
+permutations and sampling without replacement.
+Macro AUC and AP increase monotonically in both eligible cohorts
+(\cref{tab:competitor_budget}). Increasing \(K\) from 2 to 8 improves
+AUC by \textbf{0.811 percentage points} on Core
+(95\% CI \([0.718,0.913]\)) and \textbf{1.379 points} on Extended
+(\([1.286,1.468]\)); across-seed AUC SD also decreases.
+The Extended comparison retains a positive Bonferroni-adjusted 97.5\% CI
+of \([1.274,1.482]\) points. L9 reproduces the mean improvement.
+Fixing the per-category counts across three target-area levels to
+\((8,8,16)\) preserves the Extended gain on 54 eligible categories
+(+1.681 points); no Core category meets this control's support requirements.
+Full-record estimates remain stronger on the same cohorts, so these
+results support distributing a limited budget across more competitors.
+
+\paragraph{Equal pair weights have a smaller, inconsistent effect.}
+Using all records, we compare equal record weights (A0) with equal
+competitor weights (A1), preserving raw pair-mean magnitudes and normalizing
+only the final direction. A1 changes AUC by \(-0.298\) points on Core
+and \(+0.139\) on Extended. Both 95\% CIs lie within the protocol's
+\(\pm0.5\)-point practical-effect band. These results do not support a
+universal switch to A1; A0 remains the reference estimator.
+
+\paragraph{Family effects depend on the eligible cohort.}
+With two competitors and 32 records, cross-family selection exceeds
+same-family selection on the 21-category Extended cohort by 6.968 AUC
+points, or 5.997 points after area control. The controlled Core difference
+is only 0.170 points (95\% CI \([-0.467,0.787]\); three categories).
+The Extended cohort is animal-heavy, and changing competitors also changes
+donor and background records. This secondary comparison supports a
+selection policy within the observed cache, without isolating a causal
+effect of semantic distance. The supplementary material gives exact
+cohorts, weighting definitions, adjusted intervals, and all controls.

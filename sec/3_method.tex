@@ -35,21 +35,18 @@ require text embeddings or textual descriptions of the extracted features.
 \subsection{Matched Visual Interventions}
 \label{sec:matched_interventions}
 
-For each target category \(c\), we sample competitors
-\begin{equation}
-    q_i\sim\operatorname{Uniform}(\mathcal C\setminus\{c\})
-    \label{eq:competitor_sampling}
-\end{equation}
-and construct triples
+For a target category \(c\) and competitor \(q_i\neq c\),
+we construct triples
 \(\mathcal T_i=(I_i^0,I_i^c,I_i^{q_i})\).
 The base \(I_i^0\) contains neither category; the other two images contain
 an inserted cutout of \(c\) or \(q_i\), respectively. Cutouts are extracted
 from annotated instances in the discovery split. Both donor and base
 images are disjoint from the natural-image evaluation set.
 
-The two cutouts share a paste center and target foreground area, with
-aspect ratios preserved. The normalized target area is drawn from a
-category-independent distribution \(p_A\). We sample sites outside
+The two cutouts share a requested paste center and target bounding-box
+area, with aspect ratios preserved. Boundary clipping can shift their
+realized centers, and foreground-mask areas can differ. The normalized
+target area is drawn from a common distribution \(p_A\). We sample sites outside
 annotated objects and apply the same alpha blending and local color
 harmonization procedure to both insertions. Pixels outside each paste
 footprint are unchanged. These controls match the surrounding scene and
@@ -63,14 +60,14 @@ of its inserted category with confidence at least
 \(\tau_{\mathrm{IoU}}\) with the paste footprint. The footprint must also
 have nonempty overlap with the input visual-token grid. This spatial
 check is confined to intervention quality control.
-To preserve the sampled competitor distribution after filtering, a
-rejected triple is regenerated for the same category pair, with new base,
-donor, and placement samples. Competitor draws are fixed before this
-filtering, and accepted counts are recorded for each target--competitor
-pair. \(N_c\) denotes the accepted discovery budget for target \(c\);
-each record contributes to its designated target's estimate.
-% Fill in N_c, p_A, detector identity/prompts, thresholds, and regeneration
-% limits from the final run configuration. Report any unfilled pair budgets.
+We retain the observed, gate-passing records and record accepted counts
+for each category pair. Filtering and incomplete pair coverage can make
+these counts unequal; we do not assume that the retained competitors are
+uniformly distributed. Each record contributes to both endpoint categories,
+with its contrast oriented toward the category being estimated.
+\(N_c\) counts all retained records containing \(c\).
+% Report collection-specific p_A, detector prompts, and gate thresholds
+% from the discovery configuration; they are not refitted in the ablations.
 
 All three images in a triple have the same dimensions and use identical
 preprocessing settings, yielding aligned visual-token positions.
@@ -97,7 +94,7 @@ visual token responds to either insertion:
     \end{aligned}
     \label{eq:response_weights}
 \end{equation}
-where \(T_i=T(I_i^0)\) and \(\epsilon>0\) stabilizes the denominator.
+where \(T_i=T(I_i^0)\) and \(\epsilon=10^{-8}\) stabilizes the denominator.
 All visual tokens are eligible. This weighting is symmetric in the two
 insertions and assigns greater weight to positions with larger
 intervention responses. It provides an estimate of latent support,
@@ -119,7 +116,7 @@ magnitude, while the signed contrast captures how the two categories
 differ under matched conditions. A triple with zero response at every
 token contributes a zero contrast.
 
-\subsection{Balanced Contrast Averaging}
+\subsection{Category Contrast Averaging}
 \label{sec:direction_estimation}
 
 For each category, we average its contrasts and normalize the result:
@@ -133,8 +130,10 @@ The sign is fixed by subtracting the competitor composite from the target
 composite. The resulting direction summarizes the target's contrast
 against the sampled concept menu. Normalization is applied after
 averaging, so contrast magnitudes contribute to the estimate.
-A category mean with norm at or below a fixed numerical tolerance is
-reported as an extraction failure.
+A zero or nonfinite category mean is reported as an extraction failure.
+The default estimator gives records equal weight; equal weighting of
+observed competitors is a separate ablation
+(\cref{sec:competitor_ablation}).
 
 \paragraph{Category-relative interpretation.}
 To motivate this estimator, consider the shared-nuisance model
@@ -163,7 +162,9 @@ The support-dependent gain \(\beta_i\) is retained explicitly.
 If its conditional expectation is positive and independent of the
 competitor, \(\mathbb E[\beta_i\mid c,q_i]=b_c>0\), and the
 weighted residual satisfies \(\mathbb E[\eta_i\mid c,q_i]=0\),
-uniform competitor sampling gives
+a retained competitor distribution \(\pi_c\) gives
+\(\mathbb E[\widetilde g_c]=b_c(u_c-\sum_{q\neq c}\pi_c(q)u_q)\).
+In the idealized case of uniform coverage over the full menu,
 \begin{equation}
     \begin{aligned}
         \mathbb E[\widetilde g_c]
@@ -174,8 +175,9 @@ uniform competitor sampling gives
     \label{eq:centroid_interpretation}
 \end{equation}
 Under these assumptions, the expected unnormalized estimate aligns with
-the category's deviation from the menu mean. This is an interpretation of
-the estimator, not an exact recovery guarantee: response weighting can
+the category's deviation from the menu mean. Unequal observed pair
+frequencies instead define a category-specific reference. This is an
+interpretation, not an exact recovery guarantee: response weighting can
 introduce competitor-dependent gains and biased residuals, and finite
 competitor samples introduce additional variation. We therefore assess
 the direction by its transfer to natural images.
@@ -188,7 +190,7 @@ between each visual token and the unit category direction:
 \begin{equation}
     r_{tc}(I)
     =
-    \frac{h_t(I)^\top g_c}{\max\{\|h_t(I)\|_2,\epsilon\}}.
+    \frac{h_t(I)^\top g_c}{\max\{\|h_t(I)\|_2,10^{-12}\}}.
     \label{eq:token_alignment}
 \end{equation}
 The readout uses raw hidden states at the same layer and extraction locus
@@ -206,12 +208,11 @@ We aggregate a fixed fraction of the highest-scoring tokens:
     \label{eq:presence_score}
 \end{equation}
 We use \(\rho=0.05\) as the default pooling fraction, fixed without
-evaluation-set tuning. Ties are resolved by token index. Top-fraction
+evaluation-set tuning. Equal values at the cutoff do not change the
+pooled score. Top-fraction
 pooling allows a subset of tokens to provide evidence for category
 presence and scales the pooling budget with the image's token count.
 It does not guarantee invariance to resolution or object size.
-% Confirm epsilon and the extraction-failure tolerance against the
-% implementation; specify them with the remaining numerical settings.
 
 Let \(\mathcal E\) be the natural-image evaluation set and
 \(y_c(I)\in\{0,1\}\) indicate whether category \(c\) is annotated as

@@ -28,8 +28,8 @@ which tokens should represent that change?
 
 We introduce a framework built around matched visual interventions.
 For a target category and a sampled competitor, we paste their object
-cutouts separately into the same base image, at the same center and target
-area. Holding the scene and compositing procedure fixed reduces variation
+cutouts separately into the same base image, at a common requested center and target
+bounding-box area. Holding the scene and compositing procedure fixed reduces variation
 unrelated to the category comparison. The intervention establishes what
 changed in the input, while the model's response determines how to
 aggregate hidden states. Our central design principle is that knowledge of
@@ -41,7 +41,7 @@ support.
     \includegraphics[width=\linewidth]{figs/step1_extraction.pdf}
     \caption{\textbf{Matched visual interventions.}
         Objects from a target category and a competitor are inserted
-        separately into the same base image at a matched center and area.
+        separately into the same base image at a shared requested center and target bounding-box area.
         The base and both composites form a discovery triple. The paste
         masks guide image construction; token weights are computed from
         hidden-state responses to the interventions.}
@@ -53,11 +53,13 @@ First, we measure each visual token's change from the base under both
 insertions and normalize these response magnitudes into continuous weights.
 The same weights are then applied to the direct difference between the two
 composites. Every visual token is eligible, allowing information outside
-the pasted region to contribute. Averaging these contrasts over uniformly
-sampled competitors produces one direction per category and layer.
+the pasted region to contribute. Averaging these contrasts over observed competitors produces one
+direction per category and layer.
 Under a shared-nuisance model with competitor-independent expected gain
 and zero-mean weighted residuals, the expected average aligns with the
-category's deviation from the menu mean. These assumptions explain the
+category's deviation from the menu mean when competitor coverage is
+uniform. Unequal frequencies change the reference against which a
+category is contrasted. These assumptions explain the
 estimator's category-relative interpretation; the estimator itself is
 defined directly by the intervention responses.
 
@@ -86,9 +88,12 @@ Our contributions are:
     representation changes, without using the paste mask to select hidden
     states.
 \item A category-direction estimator based on symmetric response weighting
-    and balanced contrast averaging, with an explicit account of its
+    and category contrast averaging, with an explicit account of its
     category-relative interpretation.
 \item A natural-image transfer protocol using token-wise cosine alignment,
     top-fraction pooling, and presence ROC-AUC, with random-direction
     controls and separate discovery and evaluation data.
+\item Controlled component ablations showing gains from paired subtraction
+    and broader competitor coverage at a fixed discovery budget, with
+    explicit checks on frequency weighting and area composition.
 \end{mitemize}

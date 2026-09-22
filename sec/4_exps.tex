@@ -18,7 +18,9 @@ We evaluate seven open-weight VLMs from three families: Qwen2.5-VL
 Qwen2-VL-7B~\cite{WangEtAl2024Qwen2VL}, LLaVA-1.5 (7B and
 13B)~\cite{LiuEtAl2023LLaVA}, and Gemma3 (4B and 12B).
 \Cref{tab:ladder} reports each model's decoder depth $L$ and width $d$.
-All experiments use bf16 weights on 32\,GB accelerators. 
+The multi-model comparisons use bf16 weights on 32\,GB accelerators.
+The controlled ablations in \cref{sec:paired_ablation,sec:competitor_ablation}
+use two H100 80\,GB GPUs.
 
 \paragraph{Datasets.}
 We estimate category directions from matched object interventions and
@@ -35,15 +37,16 @@ per-item scores with a standard object-hallucination benchmark
 \cref{sec:presence_evaluation} to post-merger visual tokens. For presence,
 attributes, and binding, we evaluate five depth-matched decoder layers at
 $\ell/L\approx\{0,0.25,0.50,0.75,1.00\}$. Raw and per-dimension standardised
-features are treated as separate settings (\cref{sec:exp_axes}). Each
+features are treated as separate settings (\cref{sec:exp_axes}). For the multi-model comparisons, each
 headline statistic is reported as a gap $\Delta$ from the mean of 25
 gauge-fixed random-direction sets evaluated by the same pipeline. We compute
 95\% confidence intervals using 2,000 paired bootstrap resamples over images,
 clustering by image for binding. Level-specific controls test background
 context (presence), pixel-level predictability and label permutation
 (attributes), the additive-representation null (binding), and non-visual
-answer priors (behaviour). All acceptance criteria and headline layers were
-fixed before inspecting the results.
+answer priors (behaviour). The controlled ablations report raw macro AUC and AP, with their own
+protocols and uncertainty estimates. Their primary comparisons were fixed
+before the respective runs, after earlier validation results were examined.
 
 % \paragraph{Instrument, locus and preparation.}
 % Every label-free level reads the same instrument, the pooled-margin read-out
@@ -79,12 +82,12 @@ fixed before inspecting the results.
                                &                                      & Presence & Attributes & Binding  \\
         \midrule
         Qwen2.5-VL-3B  & $36\times2048$ & $+0.4234$ & $+0.0840$ & $+0.0138$ \\
-        Qwen2.5-VL-7B  & $28\times3584$ & $+0.4415$ & $+0.1888$ & $+0.0138$ \\      
-        Qwen2-VL-7B    &           & $+0.4015$ & $+0.1509$ & $+0.0038$ \\  
-        LLaVA-1.5-7B   & $32\times4096$ & $+0.3990$ & $+0.0509$ & $+0.0028$ \\       
-        LLaVA-1.5-13B  &            & $+0.4190$ & $+0.1019$ & $+0.0018$ \\    
-        Gemma3-4B      & $34\times2560$ & $+0.4113$ & $+0.1727$ & $+0.0118$ \\      
-        Gemma3-12B     & $48\times3840$ & $+0.4343$ & $+0.2127$ & $+0.0137$ \\ 
+        Qwen2.5-VL-7B  & $28\times3584$ & $+0.4415$ & $+0.1888$ & $+0.0138$ \\
+        Qwen2-VL-7B    &           & $+0.4015$ & $+0.1509$ & $+0.0038$ \\
+        LLaVA-1.5-7B   & $32\times4096$ & $+0.3990$ & $+0.0509$ & $+0.0028$ \\
+        LLaVA-1.5-13B  &            & $+0.4190$ & $+0.1019$ & $+0.0018$ \\
+        Gemma3-4B      & $34\times2560$ & $+0.4113$ & $+0.1727$ & $+0.0118$ \\
+        Gemma3-12B     & $48\times3840$ & $+0.4343$ & $+0.2127$ & $+0.0137$ \\
         \bottomrule
     \end{tabular}
     % Qwen2.5-VL-72B is omitted: 144 GB in bf16 does not fit the 32 GB devices
@@ -338,3 +341,7 @@ pretraining-saturated -- grounding-SFT contributes about zero, DPO $+0.0037$,
 contrastive GRPO about $+0.0003$, so the contrast is the lever, not the
 objective); and \textbf{model scale within family}, where only the two Qwen
 rows currently permit a direct comparison of absolute AUCs.
+
+% Controlled paired-intervention ablation; earlier experiments retained.
+\input{sec/4_paired_ablation}
+\input{sec/4_competitor_ablation}

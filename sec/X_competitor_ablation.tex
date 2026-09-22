@@ -1,0 +1,160 @@
+% Follows the supplementary title in X_paired_ablation.
+\section{Competitor Diversity and Weighting}
+\label{sec:supp_competitor}
+
+We expand the study in \cref{sec:competitor_ablation}. The Core and
+Extended collections correspond to the saved \texttt{core} and
+\texttt{ext2} menus. These experiments refit saved paired contrasts;
+they do not require reconstructing the original intervention triples.
+Consequently, the Extended results do not complete the missing
+paired-versus-single-sided replication described in
+\cref{sec:supp_paired}.
+
+\subsection{Estimators and Sampling Controls}
+
+Let \(\mathcal Q_c\) be the observed competitors of category \(c\),
+\(n_{cq}\) the accepted pair count, and \(\bar d_{cq}\) the raw
+mean contrast oriented toward \(c\). We define
+\begin{equation}
+    \widetilde g_c^{(\gamma)}=
+    \frac{\sum_{q\in\mathcal Q_c}n_{cq}^{\gamma}\bar d_{cq}}
+         {\sum_{q\in\mathcal Q_c}n_{cq}^{\gamma}},
+    \qquad
+    g_c^{(\gamma)}=
+    \frac{\widetilde g_c^{(\gamma)}}{\|\widetilde g_c^{(\gamma)}\|_2}.
+    \label{eq:competitor_weighting}
+\end{equation}
+A0 uses \(\gamma=1\), recovering equal record weights; A1 uses
+\(\gamma=0\), giving each observed competitor equal weight; and A2
+uses \(\gamma=\tfrac12\). We do not normalize individual contrasts
+or pair means. The low-count sensitivity check excludes pairs with fewer
+than 10 records from both A0 and A1 before refitting.
+
+For the competitor-count study (B), every eligible category must have
+at least eight competitors with at least 16 records each. We sample a
+competitor ordering per category and seed and use its first 2, 4, or 8
+entries. Each selected competitor contributes 16, 8, or 4 records,
+respectively. A shared permutation of each unordered pair's records
+couples the fits. The competitor subsets are nested; the complete
+32-record sets need not be nested. Records are sampled without replacement
+within each category fit, and selections for different categories can
+share a record.
+
+The family study (C) requires at least two eligible competitors in the
+target's family and two outside it. We compare two same-family
+competitors, two cross-family competitors, and one of each, always using
+16 records per competitor. Families follow the frozen category-to-family
+mapping, including distinct families for the OpenImages categories.
+The 21-category Extended cohort contains 15 animal categories; its
+composition limits generalization to the full menu.
+
+Area controls preserve 32 records while fixing counts across the three
+saved target-area levels to \((8,8,16)\) per category. Each eligible
+pair must contain at least \((4,4,8)\) records at those levels. With
+\(K\) competitors, each contributes \((8/K,8/K,16/K)\) records.
+These quotas control target-area strata, not realized foreground-mask
+area or all donor and background properties. Natural-area comparisons
+are also evaluated on each controlled cohort to separate cohort changes
+from the area intervention.
+
+\input{tables/competitor_weighting}
+\input{tables/competitor_primary}
+
+\subsection{Evaluation and Uncertainty}
+
+Core uses the 5,000 COCO val2017 images. Extended evaluates 44 categories
+on COCO and 32 additional categories on 25,099 OpenImages train images,
+with each category scored only on its assigned source dataset. COCO
+instance annotations define presence. For OpenImages, only human-verified
+positive or negative image--category labels enter the metrics. We compute
+each category's AUC and AP on its eligible images and then average over
+the fixed category cohort; the two source datasets are not given equal
+weight independently of their category counts.
+
+B and C use fitting seeds 61000--61019. Reported means and sample SDs
+refer to per-seed macro metrics, without averaging directions or image
+scores. Every layer includes 25 shared random-direction controls.
+Image-bootstrap draws resample COCO and OpenImages independently, sharing
+each draw across categories, variants, and fitting seeds. We recompute
+category AUCs, average over categories and the fixed fits, and form paired
+differences within each draw. All reported comparisons retain all 2,000
+draws. AP is reported as a point estimate.
+
+The two comparisons specified as primary before this run are Extended
+L18 A1 minus A0 and B \(K=8\) minus \(K=2\). We report marginal
+95\% intervals and Bonferroni-adjusted 97.5\% intervals, providing at
+least 95\% simultaneous coverage for this pair of comparisons
+(\cref{tab:competitor_primary}). All other intervals are unadjusted and
+secondary. The protocol was defined after inspecting earlier validation
+results; it does not constitute evaluation on a previously unseen test set.
+
+These intervals capture image uncertainty conditional on the saved
+contrasts and fixed fits. They exclude uncertainty from new donor,
+background, gating, or fitting-seed draws. For B at L18, the paired
+\(K=8\) minus \(K=2\) seed-difference SD is 0.814 points on Core
+and 1.235 points on Extended. These SDs describe variability among fits
+and should not be confused with the narrower image-bootstrap intervals.
+
+\input{tables/competitor_layers}
+\input{tables/competitor_area}
+\input{tables/competitor_family}
+\input{tables/competitor_cohorts}
+
+\subsection{Secondary Results and Scope}
+
+Equal competitor weights reduce Core AUC at all five layers. Extended
+point estimates improve at all five layers, although the L27 interval
+includes zero (\cref{tab:competitor_layers}). Removing pairs with fewer
+than 10 records attenuates the L18 differences to \(-0.054\) points
+on Core and \(+0.064\) on Extended. This sensitivity does not identify
+the noise level of those records or justify choosing a cutoff after
+observing the result.
+
+The competitor-count gain appears at L9 and L18. Under area control,
+Extended \(K=8\) exceeds \(K=2\) by 1.681 points at L18
+(95\% CI \([1.580,1.773]\); \cref{tab:competitor_area}). No Core
+category satisfies the B-area support constraints. Full-record A0 remains
+above the 32-record \(K=8\) fit on the same B cohorts: 0.9735 versus
+0.9691 on Core, and 0.8860 versus 0.8564 on Extended. These references
+use unequal budgets and do not contradict the fixed-budget result.
+
+Area control preserves the cross-family advantage on Extended, with a
+5.997-point L18 difference (95\% CI \([5.388,6.621]\)). On Core,
+the interval crosses zero and cross-family AP is lower than same-family
+AP (0.7660 versus 0.8386; \cref{tab:competitor_family}). We therefore do
+not claim a robust Core advantage or a general semantic-distance effect.
+
+The selected class diagnostics also resist a universal balancing claim.
+At Extended L18, A1 changes chair AUC from 0.6100 to 0.6252, couch from
+0.6344 to 0.6347, and handbag from 0.4708 to 0.4613. The corresponding
+unadjusted class-level intervals are exploratory. Restricting A1 minus A0
+to B's 64-category cohort changes its mean effect to \(-0.050\) points,
+reinforcing the need to retain exact cohort definitions.
+
+\subsection{Reconstruction and Reproducibility}
+
+We use model revision \texttt{66285546d2b8}, prompt
+\texttt{Describe.}, BF16 inference, FP16 feature caches, and FP32 cosine
+scoring. Layers 1, 9, 18, 27, and 35 are extracted in one forward pass
+per image on two H100 80\,GB GPUs. Weighting is evaluated at all five
+layers; B, C, and their area controls are evaluated at L9 and L18.
+The run records 148 passing regression tests, exact agreement of
+extraction hooks with model reference outputs, and exact recovery of
+historical A0 directions at every layer in both collections. The maximum
+per-category AUC difference between GPU scoring and the original CPU
+readout is \(3.59\times10^{-6}\), below the \(10^{-5}\) tolerance.
+
+All variants share a reconstructed evaluation cache. The historical
+OpenImages run contained 25,085 images; the identities of the 14 omitted
+images and the historical model revision are unavailable. Changes between
+historical and reconstructed scores are therefore not ablation effects.
+Core A0 also differs slightly from the replayed P0 in
+\cref{sec:paired_ablation}, which recomputes contrasts from recovered
+triples. Core and Extended differ in their menus, gates, and saved
+contrasts, so their macro scores do not form a controlled menu-size test.
+
+The saved artifacts include exact record selections, category-family
+snapshots, eligibility audits, input hashes, per-image scores, and
+bootstrap samples. A larger-budget study with 64 records per category
+and broader family coverage remain future experiments; no results from
+those proposed studies are included here.

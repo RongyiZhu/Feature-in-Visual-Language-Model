@@ -1,0 +1,72 @@
+\subsection{Ablation: Paired versus Single-Sided Interventions}
+\label{sec:paired_ablation}
+
+Does subtracting a matched competitor improve category-direction estimation
+beyond subtracting the unedited image? We isolate this choice by fitting four
+estimators on identical intervention triples and evaluating them with the
+same cosine readout and top-5\% pooling rule
+(\cref{sec:presence_evaluation}). This ablation reports raw macro ROC-AUC
+and macro average precision (AP).
+
+\paragraph{Controlled comparison.}
+We use frozen Qwen2.5-VL-3B-Instruct with the prompt \texttt{Describe.}
+and 2,104 accepted intervention records covering 10 object categories and
+all 45 unordered category pairs. The saved records are replayed with fixed
+donors, base images, placement parameters, and historical selection
+decisions. All variants use the same hidden states and the same 5,000
+COCO val2017 evaluation images. L18 is the primary layer; L1, L9, L27,
+and L35 provide secondary checks. These choices were specified before this
+ablation run, after earlier results on the validation population had been
+examined.
+
+Let \(H_b,H_c,H_q\) denote the base, target-composite, and
+competitor-composite token states. P0, P1, and P2 share the response weights
+\(\alpha\) in \cref{eq:response_weights}. Their target contributions are
+\(\alpha^\top(H_c-H_q)\), \(\alpha^\top(H_c-H_b)\), and
+\(\alpha^\top H_c\), respectively. P3 uses the single-sided difference
+with its own weights,
+\(\alpha_{c,t}=e_{c,t}/(\sum_s e_{c,s}+10^{-8})\), where
+\(e_{c,t}=\tfrac12\|H_{c,t}-H_{b,t}\|_2\).
+Thus P0 versus P1 isolates the subtraction reference under fixed weights,
+whereas P3 tests whether weights computed without the opposite composite
+recover the paired result. P2 removes subtraction from the pooled vector;
+its weights still depend on interventions.
+
+Each record contributes to both endpoint categories. Only P0 uses opposite
+contributions; P1--P3 compute the contribution for each endpoint from its
+own composite. We average contributions with equal record weights within
+each category and normalize only the final mean. Observed pair counts
+range from 4 to 101; we retain these frequencies without reweighting.
+
+\input{tables/paired_primary}
+
+\paragraph{Paired subtraction improves transfer.}
+At L18, P0 reaches 0.9606 macro AUC, compared with 0.8818 for P1
+(\cref{tab:paired_primary}). The paired difference is
+\textbf{+7.88 AUC percentage points}, with a 95\% confidence interval
+of \textbf{[+7.17, +8.60]}. We obtain percentile intervals from 2,000
+image-bootstrap draws, resampling image indices jointly across categories
+and variants. The interval exceeds the prespecified practical difference
+of 0.5 points. Macro AP also increases, from 0.4504 to 0.7993.
+P0 improves AUC over P1 for all 10 categories and at every tested layer,
+with layer-wise gains of 5.05--10.77 points.
+
+\paragraph{Single-sided reweighting does not recover the gain.}
+P3 reaches 0.8804 AUC. Its difference from P1 is only \(-0.0013\) AUC
+(95\% CI \([-0.0015,-0.0011]\)), whereas its deficit to P0 is 8.01
+points. P2 reaches 0.5102 AUC; its difference from the measured random
+control is \(-0.0101\) (95\% CI \([-0.0230,+0.0018]\)). In this
+setting, the subtraction reference has a substantially larger effect than
+switching between the two single-sided weighting rules.
+
+\paragraph{Scope.}
+These results support retaining paired subtraction in the tested 10-class
+pipeline. They do not identify whether the gain comes from generic edit
+responses, scene context, or competitor semantics. All variants retain
+the historical two-category selection gates, and the intervals condition
+on the fixed discovery records. Only P0 versus P1 at L18 is the primary
+comparison; other comparisons are diagnostic with unadjusted intervals.
+The 76-class paired-subtraction replication remains uncompleted because
+the original three-image caches and complete replay recipes are unavailable.
+The supplementary material provides full layer and category results,
+implementation details, and replay validation.

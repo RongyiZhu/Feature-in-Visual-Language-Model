@@ -1,0 +1,171 @@
+\clearpage
+\setcounter{page}{1}
+\maketitlesupplementary
+
+\section{Paired-Intervention Ablation}
+\label{sec:supp_paired}
+
+This supplement expands the controlled comparison in
+\cref{sec:paired_ablation}. All results concern the 10-category core
+dataset and frozen Qwen2.5-VL-3B-Instruct. The larger-menu
+paired-subtraction experiment has not been completed.
+
+\subsection{Endpoint Contributions and Fitting}
+
+For a record containing categories \(c\) and \(q\), let
+\(H_b,H_c,H_q\in\mathbb R^{T\times D}\) be the aligned visual-token
+states of the base and two composites. Shared and endpoint-specific
+weights are
+\begin{equation}
+    \begin{aligned}
+        e_t&=\tfrac12\bigl(\|H_{c,t}-H_{b,t}\|_2
+                         +\|H_{q,t}-H_{b,t}\|_2\bigr),\\
+        e_{z,t}&=\tfrac12\|H_{z,t}-H_{b,t}\|_2,
+        \quad z\in\{c,q\},\\
+        \alpha_t&=\frac{e_t}{\sum_s e_s+10^{-8}},\qquad
+        \alpha_{z,t}=\frac{e_{z,t}}{\sum_s e_{z,s}+10^{-8}}.
+    \end{aligned}
+\end{equation}
+\Cref{tab:paired_endpoints} specifies both endpoint contributions.
+An endpoint-specific weight uses only its own composite and the base;
+the half factor and numerical stabilizer are retained in all variants.
+
+\begin{table*}[t]
+    \centering
+    \small
+    \begin{tabular}{lll}
+        \toprule
+        Estimator & Contribution to category \(c\) & Contribution to category \(q\) \\
+        \midrule
+        P0: paired, shared weights
+            & \(\alpha^\top(H_c-H_q)\) & \(\alpha^\top(H_q-H_c)\) \\
+        P1: single-sided, shared weights
+            & \(\alpha^\top(H_c-H_b)\) & \(\alpha^\top(H_q-H_b)\) \\
+        P2: raw, shared weights
+            & \(\alpha^\top H_c\) & \(\alpha^\top H_q\) \\
+        P3: single-sided, own weights
+            & \(\alpha_c^\top(H_c-H_b)\) & \(\alpha_q^\top(H_q-H_b)\) \\
+        \bottomrule
+    \end{tabular}
+    \caption{\textbf{Exact endpoint contributions.} All estimators use the
+        same records. Only P0 is antisymmetric between endpoints. P2 retains
+        intervention-derived weights despite omitting subtraction from
+        the pooled representation.}
+    \label{tab:paired_endpoints}
+\end{table*}
+
+Let \(\mathcal R_c\) contain every record in which \(c\) appears at
+either endpoint, and let \(x_{i,c}^{(v)}\) be the corresponding
+contribution for variant \(v\). The fitted direction is
+\begin{equation}
+    \widetilde g_c^{(v)}=\frac{1}{|\mathcal R_c|}
+        \sum_{i\in\mathcal R_c}x_{i,c}^{(v)},\qquad
+    g_c^{(v)}=\frac{\widetilde g_c^{(v)}}{
+        \|\widetilde g_c^{(v)}\|_2}.
+\end{equation}
+We introduce no per-record normalization, centering, or
+competitor-frequency correction. The 2,104 records produce 4,208 endpoint
+contributions across 45 observed pairs; pair counts range from 4 to 101.
+\Cref{tab:paired_classes} lists the per-category fitting and evaluation
+counts. Consequently, this ablation tests the estimator on its observed
+competitor frequencies rather than an exactly balanced menu.
+
+\subsection{Data Replay and Numerical Settings}
+
+All variants use the same 1,324 referenced donor cutouts and 2,104 saved
+recipes, with COCO train backgrounds and COCO val2017 evaluation images.
+We recover the saved donor identities, paste sites, and area parameters
+without resampling donors or rerunning selection gates. Compositing uses
+3-pixel feathering and a 16-pixel dilation for local color harmonization.
+The resizing routine matches the target \emph{bounding-box area} while
+preserving aspect ratio; realized foreground-mask areas can differ between
+the two cutouts. Placement uses a shared requested center with boundary
+clipping. Matching these construction parameters does not guarantee
+identical edit geometry or context effects.
+
+We use model revision
+\texttt{66285546d2b8}
+with the fixed prompt \texttt{Describe.}, BF16 inference, and FP16
+hidden-state storage. Contributions and cosine scores use FP32 arithmetic;
+class contributions are accumulated in FP64 before normalization.
+The response-weight stabilizer is \(10^{-8}\), while the cosine norm
+floor is \(10^{-12}\). The implementation rejects empty categories and
+zero or nonfinite class means. No extraction records failed.
+Hidden states are taken at layers 1, 9, 18, 27, and 35 using the same
+extraction convention for discovery and evaluation, including final
+normalization at the last layer. Extraction uses two H100 GPUs.
+
+\subsection{Uncertainty and Random Controls}
+
+For each layer, we resample 5,000 evaluation-image indices with replacement
+for 2,000 bootstrap draws. Each draw is shared across all categories and
+estimators, preserving within-image dependence. We recompute each
+category's AUC, average over the fixed 10-category menu, and form the
+paired difference within each draw. Intervals are the 2.5th and 97.5th
+percentiles. All draws are valid for every reported comparison. The
+bootstrap seed is \(70000+\ell\).
+
+The random control uses 25 independent sets of unit Gaussian directions
+per layer, with seeds \(3000+100\ell+s\), \(s=0,\ldots,24\).
+We average their metrics, not their scores. At L18, the mean random macro
+AUC is 0.5203 and its standard deviation across sets is 0.0365.
+For comparisons to this control, bootstrap draws retain the same 25
+direction sets and average their resampled metrics. This seed standard
+deviation is distinct from the image-bootstrap interval.
+
+The primary endpoint is P0 minus P1 macro AUC at L18, with a practical
+difference threshold of 0.005 AUC. The protocol was specified before this
+run but after inspection of earlier validation results. These are
+follow-up analyses on an existing evaluation population. Intervals
+condition on the fixed fitting records and directions; they do not
+incorporate new donor, background, or gate realizations. AP is reported
+as a point estimate. Other layer and category comparisons are diagnostic;
+their intervals have no multiplicity correction.
+
+\input{tables/paired_layers}
+\input{tables/paired_classes}
+
+\subsection{Layer and Category Results}
+
+P0 exceeds P1 in macro AUC and AP at all five layers
+(\cref{tab:paired_layers}). The P3-minus-P1 AUC differences range from
+\(-0.00365\) to \(-0.00035\); each corresponding 95\% interval
+lies within the prespecified \(\pm0.005\) practical band. The raw
+variant P2 has no clear advantage over the random control at L18. This
+observation is layer-specific: its AUC exceeds the random-control mean
+at L1, L9, and L35, with positive paired intervals.
+
+At L18, P0 improves AUC over P1 for every category
+(\cref{tab:paired_classes}). The largest point-estimate gains are for
+couch (+14.78 points), dog (+14.48), and person (+14.04). These category
+results do not resolve the separate chair/couch degradation observed with
+a different, larger concept menu and different discovery records.
+
+\subsection{Replay and Implementation Validation}
+
+All 2,104 replayed records match the historical paste pixel counts, token
+grids, and footprint-token counts. The recorded validation suites contain
+146 passing tests, including endpoint-swap invariance and independence
+of P3 weights from the opposite composite. Pilot extraction hooks agree
+exactly with reference hidden states, with the appropriate final-layer
+normalization. On identical tensors, P0 direction aggregation agrees
+exactly with the original estimator at all five layers. Across all
+5,000 evaluation images, the maximum per-category AUC discrepancy between
+GPU scoring and the original CPU readout is \(5.71\times10^{-7}\),
+below the \(10^{-5}\) acceptance threshold.
+
+At L18, replayed and historical category directions have mean cosine
+similarity 0.999914 and minimum 0.999829. Historical directions evaluated
+on the same rebuilt image cache reach 0.960392 macro AUC, compared with
+0.960574 for replayed P0, a difference of 0.000181. This establishes close
+agreement of the averaged directions. It does not establish bitwise
+recovery: record-level contrasts have median cosine 0.996900 and median
+relative \(\ell_2\) difference 8.05\%, and the historical model revision
+and donor-content hashes are unavailable.
+
+The experiment therefore isolates the empirical effect of the subtraction
+reference within a fixed, replayed pipeline. It neither identifies a
+specific nuisance-cancellation mechanism nor tests a fully single-category
+data-construction pipeline. Replication on the 76-class menu requires
+recovering its original three-image caches or complete successful replay
+recipes, including placement sites.

@@ -1,14 +1,18 @@
 \begin{abstract}
-Interpreting the internal representations of vision-language models (VLMs)
-is challenging because visual tokens, unlike text tokens, have no discrete
-identities. Existing methods often explain these representations through
-words or captions, making their conclusions dependent on a noisy naming step
-and limiting their ability to capture visual concepts such as attributes and
-relational binding. We introduce a framework for identifying and evaluating
-visual features across multiple levels of abstraction. It derives feature
-directions from controlled visual interventions rather than textual
-descriptions and evaluates them with a calibrated, label-free metric.
-Applying this framework to open-weight VLMs from multiple model families, we are able to access the interpretability of VLMs. our
-results identify where linear feature structure remains accessible in VLM
-representations and where it breaks down.
+We introduce a framework for extracting visual category directions from
+frozen vision--language models through matched image interventions.
+Visual tokens have no discrete identities, and an object's pixel location
+need not reveal which hidden states encode its category. We address this
+problem by inserting target and competitor objects into a shared scene,
+weighting all visual tokens by their responses to the interventions, and
+averaging the resulting paired contrasts. A cosine readout with top-fraction
+pooling evaluates transfer to disjoint natural images without fitting a
+classifier on evaluation labels. Controlled ablations on Qwen2.5-VL-3B show
+that paired subtraction improves macro presence AUC by 7.88 percentage
+points over subtracting the unedited image on a 10-category collection.
+With 32 fitting records per category, increasing the competitor count from
+two to eight improves AUC by 0.81 and 1.38 points on the eligible cohorts
+of two discovery collections. Equal competitor weighting has smaller,
+inconsistent effects. These results support paired contrast estimation and
+broad competitor coverage for recovering transferable category information.
 \end{abstract}

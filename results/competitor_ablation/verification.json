@@ -1,0 +1,103 @@
+{
+  "scope": "Audit saved results and snapshot the evidence used by the manuscript.\n\nReads the experiment directory without modifying it. Recomputes every L18\nscore-column AUC/AP with sklearn and all layers' aggregates/intervals with\nNumPy. Does not rerun extraction, fit directions, or generate bootstrap draws.\n",
+  "layers": {
+    "core_L1": {
+      "point_auc_max_error": 0.0,
+      "point_ap_max_error": 0.0,
+      "aggregate_max_error": 2.220446049250313e-16,
+      "interval_max_error": 3.3306690738754696e-16,
+      "independent_score_columns": 0,
+      "comparisons_checked": 3
+    },
+    "core_L9": {
+      "point_auc_max_error": 0.0,
+      "point_ap_max_error": 0.0,
+      "aggregate_max_error": 4.440892098500626e-16,
+      "interval_max_error": 8.760353553682876e-16,
+      "independent_score_columns": 0,
+      "comparisons_checked": 9
+    },
+    "core_L18": {
+      "point_auc_max_error": 2.220446049250313e-16,
+      "point_ap_max_error": 0.0,
+      "aggregate_max_error": 4.440892098500626e-16,
+      "interval_max_error": 6.522560269672795e-16,
+      "independent_score_columns": 1080,
+      "comparisons_checked": 10
+    },
+    "core_L27": {
+      "point_auc_max_error": 0.0,
+      "point_ap_max_error": 0.0,
+      "aggregate_max_error": 2.220446049250313e-16,
+      "interval_max_error": 3.3306690738754696e-16,
+      "independent_score_columns": 0,
+      "comparisons_checked": 3
+    },
+    "core_L35": {
+      "point_auc_max_error": 0.0,
+      "point_ap_max_error": 0.0,
+      "aggregate_max_error": 1.6653345369377348e-16,
+      "interval_max_error": 5.273559366969494e-16,
+      "independent_score_columns": 0,
+      "comparisons_checked": 3
+    },
+    "ext2_L1": {
+      "point_auc_max_error": 0.0,
+      "point_ap_max_error": 0.0,
+      "aggregate_max_error": 2.220446049250313e-16,
+      "interval_max_error": 6.106226635438361e-16,
+      "independent_score_columns": 0,
+      "comparisons_checked": 3
+    },
+    "ext2_L9": {
+      "point_auc_max_error": 0.0,
+      "point_ap_max_error": 0.0,
+      "aggregate_max_error": 4.440892098500626e-16,
+      "interval_max_error": 1.887379141862766e-15,
+      "independent_score_columns": 0,
+      "comparisons_checked": 11
+    },
+    "ext2_L18": {
+      "point_auc_max_error": 2.220446049250313e-16,
+      "point_ap_max_error": 0.0,
+      "aggregate_max_error": 4.440892098500626e-16,
+      "interval_max_error": 1.6653345369377348e-15,
+      "independent_score_columns": 11880,
+      "comparisons_checked": 12
+    },
+    "ext2_L27": {
+      "point_auc_max_error": 0.0,
+      "point_ap_max_error": 0.0,
+      "aggregate_max_error": 2.220446049250313e-16,
+      "interval_max_error": 5.551115123125783e-16,
+      "independent_score_columns": 0,
+      "comparisons_checked": 3
+    },
+    "ext2_L35": {
+      "point_auc_max_error": 0.0,
+      "point_ap_max_error": 0.0,
+      "aggregate_max_error": 2.220446049250313e-16,
+      "interval_max_error": 2.0539125955565396e-15,
+      "independent_score_columns": 0,
+      "comparisons_checked": 3
+    }
+  },
+  "source_code_hashes_match": {
+    "COMPETITOR_BALANCE_RUN.md": true,
+    "EXPERIMENT_PLAN_COMPETITOR_BALANCE_zh.md": true,
+    "requirements-competitor-balance.txt": true,
+    "scripts/analyze_competitor_balance.py": true,
+    "scripts/extract_competitor_balance_cache.py": true,
+    "scripts/fit_competitor_balance.py": true,
+    "scripts/prepare_competitor_balance_data.py": true,
+    "scripts/run_competitor_balance_analysis.py": true,
+    "scripts/run_competitor_balance_extraction.py": true,
+    "scripts/score_competitor_balance.py": true,
+    "src/data/openimages_dataset.py": true,
+    "src/data/synthetic/competitor_balance.py": true,
+    "src/data/token_labeler.py": true,
+    "src/models/adapters/qwen.py": true,
+    "src/models/token_extractor.py": true,
+    "src/utils/geometry.py": true
+  }
+}

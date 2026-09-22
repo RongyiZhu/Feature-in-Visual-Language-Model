@@ -27,7 +27,7 @@
 \def\confYear{2026}
 
 %%%%%%%%% TITLE - PLEASE UPDATE
-\title{Interpreting the Feature Space in Visual Language Model}
+\title{Interpreting Visual Features in Vision--Language Models}
 
 %%%%%%%%% AUTHORS - PLEASE UPDATE
 \author{First Author\\
@@ -61,5 +61,12 @@ First line of institution2 address\\
 
 % WARNING: do not forget to delete the supplementary pages from your submission 
 % \input{sec/X_suppl}
+
+% Uncomment the next line to include both ablation supplements in this PDF.
+% \def\pairedsupplement{1}
+\ifdefined\pairedsupplement
+\input{sec/X_paired_ablation}
+\input{sec/X_competitor_ablation}
+\fi
 
 \end{document}
